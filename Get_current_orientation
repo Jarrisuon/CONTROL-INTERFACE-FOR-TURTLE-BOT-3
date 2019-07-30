@@ -1,0 +1,11 @@
+function angle=Get_current_orientation
+sub_odom= rossubscriber('/odom');
+msg = receive(sub_odom,1);
+orientation_2=msg.Pose.Pose.Orientation;
+quat_turtle=[orientation_2.W orientation_2.X orientation_2.Y orientation_2.Z];
+ eulZYX= quat2eul(quat_turtle);
+ eulZYX=radtodeg(eulZYX);
+ %if(eulZYX(1)<0)
+  %  eulZYX(1)=eulZYX(1)+360;
+ %end   
+angle=eulZYX(1);
