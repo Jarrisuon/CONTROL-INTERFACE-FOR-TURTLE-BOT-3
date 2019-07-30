@@ -1,0 +1,256 @@
+APP1 
+classdef app1 < matlab.apps.AppBase
+
+% Properties that correspond to app components
+properties (Access = public)
+TURTLEBOT3APPUIFigure matlab.ui.Figure
+IPADRESSEditFieldLabel matlab.ui.control.Label
+IPADRESSEditField matlab.ui.control.NumericEditField
+ROSConnectButton matlab.ui.control.Button
+Lamp matlab.ui.control.Lamp
+TOPICLISTListBoxLabel matlab.ui.control.Label
+TOPICLISTListBox matlab.ui.control.ListBox
+Panel matlab.ui.container.Panel
+TELEOPERATIONMODEButton matlab.ui.control.Button
+FIGURESButton matlab.ui.control.Button
+TELEOPERATION2MODEButton matlab.ui.control.Button
+MONITORINGButton matlab.ui.control.Button
+GOTOXYPOINTButton matlab.ui.control.Button
+CAMERAButton matlab.ui.control.Button
+LDARSCANButton_2 matlab.ui.control.Button
+ORIENTATIONCONTROLButton matlab.ui.control.Button
+SEARCHITEMButton matlab.ui.control.Button
+end
+
+properties (Access = private)
+IP_Address % Description
+Odom
+end
+
+% Callbacks that handle component events
+methods (Access = private)
+
+% Code that executes after component creation
+function StartInitalApp(app)
+app.Lamp.Color='red';
+app.TOPICLISTListBox.Items={};
+end
+
+% Button pushed function: TELEOPERATIONMODEButton
+function TELEOPERATIONMODEButtonPushed(app, event)
+TELEOPERATION
+end
+
+% Button pushed function: LDARSCANButton_2
+function OpenSlamMode(app, event)
+LDAR_SLAM
+end
+
+% Button pushed function: CAMERAButton
+function OpenCamerMode(app, event)
+CAMERA
+end
+
+% Value changed function: IPADRESSEditField
+function SetIP(app, event)
+value = app.IPADRESSEditField.Value;
+app.IP_Address=value;
+end
+
+% Button pushed function: ROSConnectButton
+function ConnectRos(app, event)
+if(~robotics.ros.internal.Global.isNodeActive)
+rosinit
+end
+% run script_try.m
+%run WTF.m
+if(robotics.ros.internal.Global.isNodeActive)
+app.Lamp.Color='green';
+end
+app.TOPICLISTListBox.Items=rostopic("list");
+end
+
+% Button pushed function: FIGURESButton
+function OpenFiguresApp(app, event)
+FIGURES
+end
+
+% Button pushed function: TELEOPERATION2MODEButton
+function TELEOPERATION2MODEButtonPushed(app, event)
+TELEOPERATION_accumulating
+end
+
+% Button pushed function: MONITORINGButton
+function OpenMonitoringMode(app, event)
+Monitoring
+end
+
+% Button pushed function: GOTOXYPOINTButton
+function OpenXYZMode(app, event)
+GoToXYZ_ginput
+end
+
+% Button pushed function: ORIENTATIONCONTROLButton
+function OpenOrientationControlMode(app, event)
+ORIENTATION_CONTROL
+end
+end
+
+% Component initialization
+methods (Access = private)
+
+% Create UIFigure and components
+function createComponents(app)
+
+% Create TURTLEBOT3APPUIFigure and hide until all components are created
+app.TURTLEBOT3APPUIFigure = uifigure('Visible', 'off');
+app.TURTLEBOT3APPUIFigure.Color = [0.4941 0.1843 0.5569];
+app.TURTLEBOT3APPUIFigure.Position = [100 100 640 480];
+app.TURTLEBOT3APPUIFigure.Name = 'TURTLE BOT 3 APP';
+
+% Create IPADRESSEditFieldLabel
+app.IPADRESSEditFieldLabel = uilabel(app.TURTLEBOT3APPUIFigure);
+app.IPADRESSEditFieldLabel.HorizontalAlignment = 'right';
+app.IPADRESSEditFieldLabel.FontWeight = 'bold';
+app.IPADRESSEditFieldLabel.Position = [37 425 70 22];
+app.IPADRESSEditFieldLabel.Text = 'IP ADRESS';
+
+% Create IPADRESSEditField
+app.IPADRESSEditField = uieditfield(app.TURTLEBOT3APPUIFigure, 'numeric');
+app.IPADRESSEditField.ValueChangedFcn = createCallbackFcn(app, @SetIP, true);
+app.IPADRESSEditField.Position = [24 404 96 22];
+
+% Create ROSConnectButton
+app.ROSConnectButton = uibutton(app.TURTLEBOT3APPUIFigure, 'push');
+app.ROSConnectButton.ButtonPushedFcn = createCallbackFcn(app, @ConnectRos, true);
+app.ROSConnectButton.BackgroundColor = [0 1 0];
+app.ROSConnectButton.FontWeight = 'bold';
+app.ROSConnectButton.Position = [24 371 100 22];
+app.ROSConnectButton.Text = 'ROS Connect';
+
+% Create Lamp
+app.Lamp = uilamp(app.TURTLEBOT3APPUIFigure);
+app.Lamp.Position = [133 405 20 20];
+
+% Create TOPICLISTListBoxLabel
+app.TOPICLISTListBoxLabel = uilabel(app.TURTLEBOT3APPUIFigure);
+app.TOPICLISTListBoxLabel.BackgroundColor = [1 1 0];
+app.TOPICLISTListBoxLabel.HorizontalAlignment = 'right';
+app.TOPICLISTListBoxLabel.FontWeight = 'bold';
+app.TOPICLISTListBoxLabel.Position = [427 442 71 22];
+app.TOPICLISTListBoxLabel.Text = 'TOPIC LIST';
+
+% Create TOPICLISTListBox
+app.TOPICLISTListBox = uilistbox(app.TURTLEBOT3APPUIFigure);
+app.TOPICLISTListBox.Position = [311 273 286 170];
+
+% Create Panel
+app.Panel = uipanel(app.TURTLEBOT3APPUIFigure);
+app.Panel.BackgroundColor = [1 1 1];
+app.Panel.Position = [15 25 612 210];
+
+% Create TELEOPERATIONMODEButton
+app.TELEOPERATIONMODEButton = uibutton(app.Panel, 'push');
+app.TELEOPERATIONMODEButton.ButtonPushedFcn = createCallbackFcn(app, @TELEOPERATIONMODEButtonPushed, true);
+app.TELEOPERATIONMODEButton.BackgroundColor = [0.5255 0.5255 0.8118];
+app.TELEOPERATIONMODEButton.FontWeight = 'bold';
+app.TELEOPERATIONMODEButton.Position = [23 155 163 43];
+app.TELEOPERATIONMODEButton.Text = 'TELEOPERATION MODE ';
+
+% Create FIGURESButton
+app.FIGURESButton = uibutton(app.Panel, 'push');
+app.FIGURESButton.ButtonPushedFcn = createCallbackFcn(app, @OpenFiguresApp, true);
+app.FIGURESButton.BackgroundColor = [0.5255 0.5255 0.8118];
+app.FIGURESButton.FontWeight = 'bold';
+app.FIGURESButton.Position = [25 87 161 43];
+app.FIGURESButton.Text = 'FIGURES';
+
+% Create TELEOPERATION2MODEButton
+app.TELEOPERATION2MODEButton = uibutton(app.Panel, 'push');
+app.TELEOPERATION2MODEButton.ButtonPushedFcn = createCallbackFcn(app, @TELEOPERATION2MODEButtonPushed, true);
+app.TELEOPERATION2MODEButton.BackgroundColor = [0.5255 0.5255 0.8118];
+app.TELEOPERATION2MODEButton.FontWeight = 'bold';
+app.TELEOPERATION2MODEButton.Position = [229 155 173 43];
+app.TELEOPERATION2MODEButton.Text = 'TELEOPERATION 2 MODE ';
+
+% Create MONITORINGButton
+app.MONITORINGButton = uibutton(app.Panel, 'push');
+app.MONITORINGButton.ButtonPushedFcn = createCallbackFcn(app, @OpenMonitoringMode, true);
+app.MONITORINGButton.BackgroundColor = [0.5255 0.5255 0.8118];
+app.MONITORINGButton.FontWeight = 'bold';
+app.MONITORINGButton.Position = [436 87 161 43];
+app.MONITORINGButton.Text = 'MONITORING';
+
+% Create GOTOXYPOINTButton
+app.GOTOXYPOINTButton = uibutton(app.Panel, 'push');
+app.GOTOXYPOINTButton.ButtonPushedFcn = createCallbackFcn(app, @OpenXYZMode, true);
+app.GOTOXYPOINTButton.BackgroundColor = [0.5255 0.5255 0.8118];
+app.GOTOXYPOINTButton.FontWeight = 'bold';
+app.GOTOXYPOINTButton.Position = [436 155 161 43];
+app.GOTOXYPOINTButton.Text = 'GO TO X,Y POINT ';
+
+% Create CAMERAButton
+app.CAMERAButton = uibutton(app.Panel, 'push');
+app.CAMERAButton.ButtonPushedFcn = createCallbackFcn(app, @OpenCamerMode, true);
+app.CAMERAButton.BackgroundColor = [0.5255 0.5255 0.8118];
+app.CAMERAButton.FontWeight = 'bold';
+app.CAMERAButton.Position = [229 87 173 40];
+app.CAMERAButton.Text = 'CAMERA';
+
+% Create LDARSCANButton_2
+app.LDARSCANButton_2 = uibutton(app.Panel, 'push');
+app.LDARSCANButton_2.ButtonPushedFcn = createCallbackFcn(app, @OpenSlamMode, true);
+app.LDARSCANButton_2.BackgroundColor = [0.5255 0.5255 0.8118];
+app.LDARSCANButton_2.FontWeight = 'bold';
+app.LDARSCANButton_2.Position = [25 17 163 44];
+app.LDARSCANButton_2.Text = 'LDAR SCAN';
+
+% Create ORIENTATIONCONTROLButton
+app.ORIENTATIONCONTROLButton = uibutton(app.Panel, 'push');
+app.ORIENTATIONCONTROLButton.ButtonPushedFcn = createCallbackFcn(app, @OpenOrientationControlMode, true);
+app.ORIENTATIONCONTROLButton.BackgroundColor = [0.5255 0.5255 0.8118];
+app.ORIENTATIONCONTROLButton.FontWeight = 'bold';
+app.ORIENTATIONCONTROLButton.Position = [229 18 173 39];
+app.ORIENTATIONCONTROLButton.Text = {'ORIENTATION'; 'CONTROL'};
+
+% Create SEARCHITEMButton
+app.SEARCHITEMButton = uibutton(app.Panel, 'push');
+app.SEARCHITEMButton.BackgroundColor = [0.5255 0.5255 0.8118];
+app.SEARCHITEMButton.FontWeight = 'bold';
+app.SEARCHITEMButton.Position = [435 17 162 43];
+app.SEARCHITEMButton.Text = {'SEARCH'; 'ITEM'};
+
+% Show the figure after all components are created
+app.TURTLEBOT3APPUIFigure.Visible = 'on';
+end
+end
+
+% App creation and deletion
+methods (Access = public)
+
+% Construct app
+function app = app1
+
+% Create UIFigure and components
+createComponents(app)
+
+% Register the app with App Designer
+registerApp(app, app.TURTLEBOT3APPUIFigure)
+
+% Execute the startup function
+runStartupFcn(app, @StartInitalApp)
+
+if nargout == 0
+clear app
+end
+end
+
+% Code that executes before app deletion
+function delete(app)
+
+% Delete UIFigure when app is deleted
+delete(app.TURTLEBOT3APPUIFigure)
+end
+end
+end
+
