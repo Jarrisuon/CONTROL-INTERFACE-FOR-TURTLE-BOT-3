@@ -1,0 +1,5 @@
+function [slam_obj]=slam_obj_creator()
+scan_sub=rossubscriber('/scan');
+scan_msg=receive(scan_sub,1);
+slam_obj= lidarScan(scan_msg);
+end
