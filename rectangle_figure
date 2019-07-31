@@ -1,0 +1,9 @@
+function rectangle_figure(side1,side2)
+move_linear_distance(side1);
+rotate_left_2(90);
+move_linear_distance(side2);
+rotate_left_2(90);
+move_linear_distance(side1);
+rotate_left_2(90);
+move_linear_distance(side2);
+end
