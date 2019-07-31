@@ -1,0 +1,270 @@
+LDAR 
+classdef LDAR_SLAM < matlab.apps.AppBase
+
+% Properties that correspond to app components
+properties (Access = public)
+LDARSLAMMODEUIFigure matlab.ui.Figure
+SEEPOLARPLOTButton matlab.ui.control.Button
+UIAxes matlab.ui.control.UIAxes
+SEECARTESIANButton matlab.ui.control.Button
+getpointinfoButton matlab.ui.control.Button
+PLOTSLAMButton matlab.ui.control.Button
+TELEOPERATIONPanel matlab.ui.container.Panel
+LeftButton matlab.ui.control.Button
+ForwardButton matlab.ui.control.Button
+RightButton matlab.ui.control.Button
+BackWardButton matlab.ui.control.Button
+StopButton matlab.ui.control.Button
+end
+
+properties (Access = private)
+Pax % Description
+Scan_Subscriber
+msg_scan
+Ranges
+index
+lim_inf
+lim_sup
+cart
+scans
+poses
+grid
+velocity_publisher
+velocity_message
+end
+methods (Access = private)
+function updateplot(app)
+app.Scan_Subscriber = rossubscriber('/scan');
+% ranges = [1:360];
+app.msg_scan=receive(app.Scan_Subscriber,10);
+app.Ranges=app.msg_scan.Ranges;
+app.lim_inf=app.msg_scan.RangeMin;
+app.lim_sup=app.msg_scan.RangeMax;
+%lim_sup=30;
+app.Ranges=app.Ranges';
+app.index=1;
+while(app.index<361)
+%poner un valor absurdamente grande
+if ((app.Ranges(app.index))<app.lim_inf)
+app.Ranges(app.index)=app.lim_inf;
+end
+disp(app.Ranges(app.index));
+if ((app.Ranges(app.index)) > app.lim_sup)
+app.Ranges(app.index)=app.lim_sup;
+end
+app.index=app.index+1;
+end
+th=linspace(0,2*pi,360);
+plotline = polarplot(app.Pax, th, app.Ranges);
+end
+end
+
+% Callbacks that handle component events
+methods (Access = private)
+
+% Code that executes after component creation
+function startupFcn(app)
+app.Pax = polaraxes(app.LDARSLAMMODEUIFigure);
+app.Pax.Units = 'pixels';
+app.Pax.Position = [40 55 230 230];
+app.scans={};
+app.poses=[];
+end
+
+% Button pushed function: SEEPOLARPLOTButton
+function PlotPolar(app, event)
+updateplot(app)
+end
+
+% Button pushed function: SEECARTESIANButton
+function SeeCartesian(app, event)
+app.Scan_Subscriber = rossubscriber('/scan');
+app.msg_scan=receive(app.Scan_Subscriber,10);
+app.lim_inf=app.msg_scan.RangeMin;
+app.lim_sup=app.msg_scan.RangeMax;
+%app.cart = readCartesian(app.msg_scan,'RangeLimit',[app.lim_inf app.lim_sup]);
+app.cart = readCartesian(app.msg_scan);
+% plot(app.cart(:,1),app.cart(:,2))
+plot(app.UIAxes,app.cart(:,1),app.cart(:,2));
+end
+
+% Button pushed function: getpointinfoButton
+function GetPointInfo(app, event)
+app.scans{end+1}=slam_obj_creator();
+app.poses=[app.poses;pose_creator()];
+disp('h');
+end
+
+% Button pushed function: PLOTSLAMButton
+function PlotSLAM(app, event)
+app.grid=buildMap(app.scans,app.poses,10,3.5);
+show(app.grid);
+end
+
+% Callback function
+function OpenTELEOP(app, event)
+TELEOPERATION_accumulating
+end
+
+% Button pushed function: ForwardButton
+function MoveForward(app, event)
+app.velocity_publisher = rospublisher('/cmd_vel');
+app.velocity_message= rosmessage(app.velocity_publisher);
+app.velocity_message.Linear.X=0.1;
+send(app.velocity_publisher,app.velocity_message);
+end
+
+% Button pushed function: LeftButton
+function MoveLeft(app, event)
+app.velocity_publisher = rospublisher('/cmd_vel');
+app.velocity_message= rosmessage(app.velocity_publisher);
+app.velocity_message.Angular.Z=0.1;
+send(app.velocity_publisher,app.velocity_message);
+end
+
+% Button pushed function: StopButton
+function Stop(app, event)
+app.velocity_publisher = rospublisher('/cmd_vel');
+app.velocity_message= rosmessage(app.velocity_publisher);
+app.velocity_message.Linear.X=0.0;
+app.velocity_message.Angular.Z=0.0;
+send(app.velocity_publisher,app.velocity_message);
+end
+
+% Button pushed function: RightButton
+function MoveRight(app, event)
+app.velocity_publisher = rospublisher('/cmd_vel');
+app.velocity_message= rosmessage(app.velocity_publisher);
+app.velocity_message.Angular.Z=-0.1;
+send(app.velocity_publisher,app.velocity_message);
+end
+
+% Button pushed function: BackWardButton
+function MoveBackwards(app, event)
+app.velocity_publisher = rospublisher('/cmd_vel');
+app.velocity_message= rosmessage(app.velocity_publisher);
+app.velocity_message.Linear.X=-0.1;
+send(app.velocity_publisher,app.velocity_message);
+end
+end
+
+% Component initialization
+methods (Access = private)
+
+% Create UIFigure and components
+function createComponents(app)
+
+% Create LDARSLAMMODEUIFigure and hide until all components are created
+app.LDARSLAMMODEUIFigure = uifigure('Visible', 'off');
+app.LDARSLAMMODEUIFigure.Position = [100 100 855 480];
+app.LDARSLAMMODEUIFigure.Name = 'LDAR-SLAM MODE';
+
+% Create SEEPOLARPLOTButton
+app.SEEPOLARPLOTButton = uibutton(app.LDARSLAMMODEUIFigure, 'push');
+app.SEEPOLARPLOTButton.ButtonPushedFcn = createCallbackFcn(app, @PlotPolar, true);
+app.SEEPOLARPLOTButton.BackgroundColor = [0.3922 0.8314 0.0745];
+app.SEEPOLARPLOTButton.FontWeight = 'bold';
+app.SEEPOLARPLOTButton.Position = [79 339 143 44];
+app.SEEPOLARPLOTButton.Text = 'SEE POLAR PLOT';
+
+% Create UIAxes
+app.UIAxes = uiaxes(app.LDARSLAMMODEUIFigure);
+title(app.UIAxes, 'LDAR-Cartesian View ')
+xlabel(app.UIAxes, 'X')
+ylabel(app.UIAxes, 'Y')
+app.UIAxes.Position = [354 37 300 185];
+
+% Create SEECARTESIANButton
+app.SEECARTESIANButton = uibutton(app.LDARSLAMMODEUIFigure, 'push');
+app.SEECARTESIANButton.ButtonPushedFcn = createCallbackFcn(app, @SeeCartesian, true);
+app.SEECARTESIANButton.BackgroundColor = [0.3922 0.8314 0.0745];
+app.SEECARTESIANButton.FontWeight = 'bold';
+app.SEECARTESIANButton.Position = [436 339 136 44];
+app.SEECARTESIANButton.Text = 'SEE CARTESIAN';
+
+% Create getpointinfoButton
+app.getpointinfoButton = uibutton(app.LDARSLAMMODEUIFigure, 'push');
+app.getpointinfoButton.ButtonPushedFcn = createCallbackFcn(app, @GetPointInfo, true);
+app.getpointinfoButton.FontWeight = 'bold';
+app.getpointinfoButton.Position = [711 263 120 36];
+app.getpointinfoButton.Text = 'get point info';
+
+% Create PLOTSLAMButton
+app.PLOTSLAMButton = uibutton(app.LDARSLAMMODEUIFigure, 'push');
+app.PLOTSLAMButton.ButtonPushedFcn = createCallbackFcn(app, @PlotSLAM, true);
+app.PLOTSLAMButton.FontWeight = 'bold';
+app.PLOTSLAMButton.Position = [711 213 120 36];
+app.PLOTSLAMButton.Text = 'PLOT SLAM';
+
+% Create TELEOPERATIONPanel
+app.TELEOPERATIONPanel = uipanel(app.LDARSLAMMODEUIFigure);
+app.TELEOPERATIONPanel.TitlePosition = 'centertop';
+app.TELEOPERATIONPanel.Title = 'TELEOPERATION';
+app.TELEOPERATIONPanel.BackgroundColor = [0.9294 0.6431 0.8196];
+app.TELEOPERATIONPanel.FontWeight = 'bold';
+app.TELEOPERATIONPanel.Position = [643 308 200 169];
+
+% Create LeftButton
+app.LeftButton = uibutton(app.TELEOPERATIONPanel, 'push');
+app.LeftButton.ButtonPushedFcn = createCallbackFcn(app, @MoveLeft, true);
+app.LeftButton.Position = [18 70 32 22];
+app.LeftButton.Text = '';
+
+% Create ForwardButton
+app.ForwardButton = uibutton(app.TELEOPERATIONPanel, 'push');
+app.ForwardButton.ButtonPushedFcn = createCallbackFcn(app, @MoveForward, true);
+app.ForwardButton.Position = [86 121 32 22];
+app.ForwardButton.Text = '';
+
+% Create RightButton
+app.RightButton = uibutton(app.TELEOPERATIONPanel, 'push');
+app.RightButton.ButtonPushedFcn = createCallbackFcn(app, @MoveRight, true);
+app.RightButton.Position = [150 70 32 22];
+app.RightButton.Text = '';
+
+% Create BackWardButton
+app.BackWardButton = uibutton(app.TELEOPERATIONPanel, 'push');
+app.BackWardButton.ButtonPushedFcn = createCallbackFcn(app, @MoveBackwards, true);
+app.BackWardButton.Position = [86 6 32 22];
+app.BackWardButton.Text = '';
+
+% Create StopButton
+app.StopButton = uibutton(app.TELEOPERATIONPanel, 'push');
+app.StopButton.ButtonPushedFcn = createCallbackFcn(app, @Stop, true);
+app.StopButton.Position = [86 70 32 22];
+app.StopButton.Text = '';
+
+% Show the figure after all components are created
+app.LDARSLAMMODEUIFigure.Visible = 'on';
+end
+end
+
+% App creation and deletion
+methods (Access = public)
+
+% Construct app
+function app = LDAR_SLAM
+
+% Create UIFigure and components
+createComponents(app)
+
+% Register the app with App Designer
+registerApp(app, app.LDARSLAMMODEUIFigure)
+
+% Execute the startup function
+runStartupFcn(app, @startupFcn)
+
+if nargout == 0
+clear app
+end
+end
+
+% Code that executes before app deletion
+function delete(app)
+
+% Delete UIFigure when app is deleted
+delete(app.LDARSLAMMODEUIFigure)
+end
+end
+end
+
