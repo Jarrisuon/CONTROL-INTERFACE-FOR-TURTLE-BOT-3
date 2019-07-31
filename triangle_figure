@@ -1,0 +1,11 @@
+function triangle_figure(side)
+move_linear_distance(side);
+rotate_left_2(120);
+move_linear_distance(side);
+rotate_left_2(120);
+move_linear_distance(side);
+end
+
+
+
+
