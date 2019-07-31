@@ -1,0 +1,361 @@
+TELEOPERATION 
+classdef TELEOPERATION_accumulating_new < matlab.apps.AppBase
+
+% Properties that correspond to app components
+properties (Access = public)
+TELEOPERATIONACCUMULATIVEMODEUIFigure matlab.ui.Figure
+MOVEFORWARDButton matlab.ui.control.Button
+MOVEBACKWARDButton matlab.ui.control.Button
+TURNRIGHTButton matlab.ui.control.Button
+TURNLEFTButton matlab.ui.control.Button
+STOPButton matlab.ui.control.Button
+VELOCITYSETTINGPanel matlab.ui.container.Panel
+LinearVelocitymsEditFieldLabel matlab.ui.control.Label
+LinearVelocitymsEditField matlab.ui.control.NumericEditField
+AngularVelocityradsEditFieldLabel matlab.ui.control.Label
+AngularVelocityradsEditField matlab.ui.control.NumericEditField
+Image matlab.ui.control.Image
+Panel matlab.ui.container.Panel
+LinearVelocityGaugeLabel matlab.ui.control.Label
+LinearVelocityGauge matlab.ui.control.LinearGauge
+AngularVelocityGaugeLabel matlab.ui.control.Label
+AngularVelocityGauge matlab.ui.control.LinearGauge
+CaptureImageButton matlab.ui.control.Button
+RecordVideoButton matlab.ui.control.Button
+StopVideoButton matlab.ui.control.Button
+end
+
+properties (Access = private)
+Publisher
+velocity_message
+Velocity_publisher
+velocity_message_1
+odom_subscriber
+odom_message
+Linear_Speed
+Angular_Speed
+timerObj
+timerObj2
+mypi
+mycam
+Snapshot
+ImageCounter
+ImageName
+end
+methods (Access = private)
+function show_picture(app)
+app.Snapshot=snapshot(app.mycam);
+app.Image.ImageSource=app.Snapshot;
+% imagesc(app.Snapshot)
+end
+function update_gauges(app)
+app.odom_subscriber=rossubscriber('/odom');
+app.odom_message=receive(app.odom_subscriber,1);
+app.LinearVelocityGauge.Value=app.odom_message.Twist.Twist.Linear.X;
+app.AngularVelocityGauge.Value=app.odom_message.Twist.Twist.Angular.Z;
+% app.AngularVelocityGauge.Limits=[-app.LinearVelocityGauge.Value*3 app.LinearVelocityGauge.Value*3];
+% app.AngularVelocityGauge.Limits=[-app.AngularVelocityGauge.Value*3 app.AngularVelocityGauge.Value*3];
+end
+end
+
+% Callbacks that handle component events
+methods (Access = private)
+
+% Code that executes after component creation
+function startupFcn(app)
+app.mypi=raspi;
+app.mycam=cameraboard(app.mypi,'Resolution','1024x768','Quality',30);
+app.timerObj = timer('Period',0.2,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj.TimerFcn = @(x,y)app.show_picture;
+start(app.timerObj);
+app.timerObj2 = timer('Period',1,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj2.TimerFcn = @(x,y)app.update_gauges;
+start(app.timerObj2);
+app.AngularVelocityGauge.Limits=[-3 3];
+app.LinearVelocityGauge.Limits=[-0.3 0.3];
+app.ImageCounter=0;
+app.StopVideoButton.Visible='off';
+end
+
+% Button pushed function: MOVEFORWARDButton
+function MoveForward(app, event)
+App.Velocity_publisher = rospublisher('/cmd_vel');
+App.velocity_message_1= rosmessage(App.Velocity_publisher);
+app.Linear_Speed=app.Linear_Speed+app.LinearVelocitymsEditField.Value;
+App.velocity_message_1.Linear.X=app.Linear_Speed;
+App.velocity_message_1.Angular.Z=app.Angular_Speed;
+send(App.Velocity_publisher,App.velocity_message_1);
+
+
+end
+
+% Button pushed function: MOVEBACKWARDButton
+function MoveBackward(app, event)
+App.Velocity_publisher = rospublisher('/cmd_vel');
+App.velocity_message_1= rosmessage(App.Velocity_publisher);
+app.Linear_Speed=app.Linear_Speed-app.LinearVelocitymsEditField.Value;
+App.velocity_message_1.Linear.X =app.Linear_Speed;
+App.velocity_message_1.Angular.Z=app.Angular_Speed;
+send(App.Velocity_publisher,App.velocity_message_1);
+end
+
+% Button pushed function: TURNRIGHTButton
+function TurnRight(app, event)
+%borrar props, app
+App.Velocity_publisher = rospublisher('/cmd_vel');
+App.velocity_message_1= rosmessage(App.Velocity_publisher);
+app.Angular_Speed=app.Angular_Speed-app.AngularVelocityradsEditField.Value
+App.velocity_message_1.Angular.Z=app.Angular_Speed;
+App.velocity_message_1.Linear.X =app.Linear_Speed;
+send(App.Velocity_publisher,App.velocity_message_1);
+end
+
+% Button pushed function: STOPButton
+function Stop(app, event)
+App.Velocity_publisher = rospublisher('/cmd_vel');
+App.velocity_message_1= rosmessage(App.Velocity_publisher);
+App.velocity_message_1.Linear.X=0.00;
+App.velocity_message_1.Angular.Z=0.00;
+app.Linear_Speed=0;
+app.Angular_Speed = 0;
+send(App.Velocity_publisher,App.velocity_message_1);
+end
+
+% Button pushed function: TURNLEFTButton
+function TurnLeft(app, event)
+App.Velocity_publisher = rospublisher('/cmd_vel');
+App.velocity_message_1= rosmessage(App.Velocity_publisher);
+app.Angular_Speed=app.Angular_Speed+app.AngularVelocityradsEditField.Value
+App.velocity_message_1.Angular.Z=app.Angular_Speed;
+App.velocity_message_1.Linear.X =app.Linear_Speed;
+send(App.Velocity_publisher,App.velocity_message_1);
+end
+
+% Value changed function: LinearVelocitymsEditField
+function UpdateLinearSpeed(app, event)
+app.Linear_Speed=0;
+end
+
+% Value changed function: AngularVelocityradsEditField
+function UpdateAngularSpeed(app, event)
+app.Angular_Speed = 0;
+end
+
+% Close request function:
+% TELEOPERATIONACCUMULATIVEMODEUIFigure
+function TELEOPERATIONACCUMULATIVEMODEUIFigureCloseRequest(app, event)
+stop(app.timerObj)
+stop(app.timerObj2)
+delete(app)
+end
+
+% Button pushed function: CaptureImageButton
+function CaptureImage(app, event)
+app.Snapshot=snapshot(app.mycam);
+app.Snapshot=snapshot(app.mycam);
+app.ImageName=strcat('Image',num2str(app.ImageCounter));
+app.ImageName=strcat(app.ImageName,'.jpg');
+imwrite(app.Snapshot,app.ImageName);
+app.ImageCounter=app.ImageCounter+1;
+end
+
+% Button pushed function: RecordVideoButton
+function RecordVideo(app, event)
+record(app.mycam,'video.mp4',1)
+app.RecordVideoButton.Visible='off';
+app.StopVideoButton.Visible='on';
+end
+
+% Button pushed function: StopVideoButton
+function StopVIdeo(app, event)
+stop(app.mycam);
+getFile(app.mypi,'video.mp4','/home/ignacio')
+app.StopVideoButton.Visible='off';
+app.RecordVideoButton.Visible='on';
+end
+end
+
+% Component initialization
+methods (Access = private)
+
+% Create UIFigure and components
+function createComponents(app)
+
+% Create TELEOPERATIONACCUMULATIVEMODEUIFigure and hide until all components are created
+app.TELEOPERATIONACCUMULATIVEMODEUIFigure = uifigure('Visible', 'off');
+app.TELEOPERATIONACCUMULATIVEMODEUIFigure.Position = [100 100 1168 480];
+app.TELEOPERATIONACCUMULATIVEMODEUIFigure.Name = 'TELEOPERATION --- ACCUMULATIVE MODE';
+app.TELEOPERATIONACCUMULATIVEMODEUIFigure.CloseRequestFcn = createCallbackFcn(app, @TELEOPERATIONACCUMULATIVEMODEUIFigureCloseRequest, true);
+
+% Create MOVEFORWARDButton
+app.MOVEFORWARDButton = uibutton(app.TELEOPERATIONACCUMULATIVEMODEUIFigure, 'push');
+app.MOVEFORWARDButton.ButtonPushedFcn = createCallbackFcn(app, @MoveForward, true);
+app.MOVEFORWARDButton.BackgroundColor = [0.8784 0.3882 0.3882];
+app.MOVEFORWARDButton.FontWeight = 'bold';
+app.MOVEFORWARDButton.Position = [297 365 112 43];
+app.MOVEFORWARDButton.Text = 'MOVE FORWARD';
+
+% Create MOVEBACKWARDButton
+app.MOVEBACKWARDButton = uibutton(app.TELEOPERATIONACCUMULATIVEMODEUIFigure, 'push');
+app.MOVEBACKWARDButton.ButtonPushedFcn = createCallbackFcn(app, @MoveBackward, true);
+app.MOVEBACKWARDButton.BackgroundColor = [0.8784 0.3882 0.3882];
+app.MOVEBACKWARDButton.FontWeight = 'bold';
+app.MOVEBACKWARDButton.Position = [302 215 113 43];
+app.MOVEBACKWARDButton.Text = 'MOVE BACKWARD';
+
+% Create TURNRIGHTButton
+app.TURNRIGHTButton = uibutton(app.TELEOPERATIONACCUMULATIVEMODEUIFigure, 'push');
+app.TURNRIGHTButton.ButtonPushedFcn = createCallbackFcn(app, @TurnRight, true);
+app.TURNRIGHTButton.BackgroundColor = [0.8784 0.3882 0.3882];
+app.TURNRIGHTButton.FontWeight = 'bold';
+app.TURNRIGHTButton.Position = [455 293 87 41];
+app.TURNRIGHTButton.Text = 'TURN RIGHT';
+
+% Create TURNLEFTButton
+app.TURNLEFTButton = uibutton(app.TELEOPERATIONACCUMULATIVEMODEUIFigure, 'push');
+app.TURNLEFTButton.ButtonPushedFcn = createCallbackFcn(app, @TurnLeft, true);
+app.TURNLEFTButton.BackgroundColor = [0.8784 0.3882 0.3882];
+app.TURNLEFTButton.FontWeight = 'bold';
+app.TURNLEFTButton.Position = [194 297 83 38];
+app.TURNLEFTButton.Text = 'TURN LEFT';
+
+% Create STOPButton
+app.STOPButton = uibutton(app.TELEOPERATIONACCUMULATIVEMODEUIFigure, 'push');
+app.STOPButton.ButtonPushedFcn = createCallbackFcn(app, @Stop, true);
+app.STOPButton.BackgroundColor = [0.8784 0.3882 0.3882];
+app.STOPButton.FontWeight = 'bold';
+app.STOPButton.Position = [302 294 107 40];
+app.STOPButton.Text = 'STOP';
+
+% Create VELOCITYSETTINGPanel
+app.VELOCITYSETTINGPanel = uipanel(app.TELEOPERATIONACCUMULATIVEMODEUIFigure);
+app.VELOCITYSETTINGPanel.TitlePosition = 'centertop';
+app.VELOCITYSETTINGPanel.Title = 'VELOCITY SETTING';
+app.VELOCITYSETTINGPanel.BackgroundColor = [0.3922 0.9294 0.4157];
+app.VELOCITYSETTINGPanel.FontAngle = 'italic';
+app.VELOCITYSETTINGPanel.FontWeight = 'bold';
+app.VELOCITYSETTINGPanel.Position = [12 191 163 278];
+
+% Create LinearVelocitymsEditFieldLabel
+app.LinearVelocitymsEditFieldLabel = uilabel(app.VELOCITYSETTINGPanel);
+app.LinearVelocitymsEditFieldLabel.HorizontalAlignment = 'center';
+app.LinearVelocitymsEditFieldLabel.FontWeight = 'bold';
+app.LinearVelocitymsEditFieldLabel.Position = [22 185 119 22];
+app.LinearVelocitymsEditFieldLabel.Text = 'Linear Velocity(m/s)';
+
+% Create LinearVelocitymsEditField
+app.LinearVelocitymsEditField = uieditfield(app.VELOCITYSETTINGPanel, 'numeric');
+app.LinearVelocitymsEditField.ValueChangedFcn = createCallbackFcn(app, @UpdateLinearSpeed, true);
+app.LinearVelocitymsEditField.HorizontalAlignment = 'center';
+app.LinearVelocitymsEditField.FontWeight = 'bold';
+app.LinearVelocitymsEditField.Position = [31 158 100 22];
+
+% Create AngularVelocityradsEditFieldLabel
+app.AngularVelocityradsEditFieldLabel = uilabel(app.VELOCITYSETTINGPanel);
+app.AngularVelocityradsEditFieldLabel.HorizontalAlignment = 'right';
+app.AngularVelocityradsEditFieldLabel.FontWeight = 'bold';
+app.AngularVelocityradsEditFieldLabel.Position = [14 91 136 22];
+app.AngularVelocityradsEditFieldLabel.Text = 'Angular Velocity(rad/s)';
+
+% Create AngularVelocityradsEditField
+app.AngularVelocityradsEditField = uieditfield(app.VELOCITYSETTINGPanel, 'numeric');
+app.AngularVelocityradsEditField.ValueChangedFcn = createCallbackFcn(app, @UpdateAngularSpeed, true);
+app.AngularVelocityradsEditField.HorizontalAlignment = 'center';
+app.AngularVelocityradsEditField.FontWeight = 'bold';
+app.AngularVelocityradsEditField.Position = [31 66 100 22];
+
+% Create Image
+app.Image = uiimage(app.TELEOPERATIONACCUMULATIVEMODEUIFigure);
+app.Image.Position = [619 36 586 410];
+
+% Create Panel
+app.Panel = uipanel(app.TELEOPERATIONACCUMULATIVEMODEUIFigure);
+app.Panel.BackgroundColor = [0.6667 0.4824 0.7804];
+app.Panel.Position = [11 20 596 111];
+
+% Create LinearVelocityGaugeLabel
+app.LinearVelocityGaugeLabel = uilabel(app.Panel);
+app.LinearVelocityGaugeLabel.HorizontalAlignment = 'center';
+app.LinearVelocityGaugeLabel.FontWeight = 'bold';
+app.LinearVelocityGaugeLabel.Position = [110 65 90 22];
+app.LinearVelocityGaugeLabel.Text = 'Linear Velocity';
+
+% Create LinearVelocityGauge
+app.LinearVelocityGauge = uigauge(app.Panel, 'linear');
+app.LinearVelocityGauge.Limits = [-1 1];
+app.LinearVelocityGauge.Position = [18 23 274 39];
+
+% Create AngularVelocityGaugeLabel
+app.AngularVelocityGaugeLabel = uilabel(app.Panel);
+app.AngularVelocityGaugeLabel.HorizontalAlignment = 'center';
+app.AngularVelocityGaugeLabel.FontWeight = 'bold';
+app.AngularVelocityGaugeLabel.Position = [386 65 100 22];
+app.AngularVelocityGaugeLabel.Text = 'Angular Velocity';
+
+% Create AngularVelocityGauge
+app.AngularVelocityGauge = uigauge(app.Panel, 'linear');
+app.AngularVelocityGauge.Limits = [-1 1];
+app.AngularVelocityGauge.Position = [299 23 274 39];
+
+% Create CaptureImageButton
+app.CaptureImageButton = uibutton(app.TELEOPERATIONACCUMULATIVEMODEUIFigure, 'push');
+app.CaptureImageButton.ButtonPushedFcn = createCallbackFcn(app, @CaptureImage, true);
+app.CaptureImageButton.BackgroundColor = [0 1 0];
+app.CaptureImageButton.FontWeight = 'bold';
+app.CaptureImageButton.Position = [481 418 93 33];
+app.CaptureImageButton.Text = 'Capture Image';
+
+% Create RecordVideoButton
+app.RecordVideoButton = uibutton(app.TELEOPERATIONACCUMULATIVEMODEUIFigure, 'push');
+app.RecordVideoButton.ButtonPushedFcn = createCallbackFcn(app, @RecordVideo, true);
+app.RecordVideoButton.BackgroundColor = [0 1 0];
+app.RecordVideoButton.FontWeight = 'bold';
+app.RecordVideoButton.Position = [481 365 93 41];
+app.RecordVideoButton.Text = 'Record Video';
+
+% Create StopVideoButton
+app.StopVideoButton = uibutton(app.TELEOPERATIONACCUMULATIVEMODEUIFigure, 'push');
+app.StopVideoButton.ButtonPushedFcn = createCallbackFcn(app, @StopVIdeo, true);
+app.StopVideoButton.BackgroundColor = [0 1 0];
+app.StopVideoButton.FontWeight = 'bold';
+app.StopVideoButton.Position = [481 367 92 38];
+app.StopVideoButton.Text = 'Stop Video';
+
+% Show the figure after all components are created
+app.TELEOPERATIONACCUMULATIVEMODEUIFigure.Visible = 'on';
+end
+end
+
+% App creation and deletion
+methods (Access = public)
+
+% Construct app
+function app = TELEOPERATION_accumulating_new
+
+% Create UIFigure and components
+createComponents(app)
+
+% Register the app with App Designer
+registerApp(app, app.TELEOPERATIONACCUMULATIVEMODEUIFigure)
+
+% Execute the startup function
+runStartupFcn(app, @startupFcn)
+
+if nargout == 0
+clear app
+end
+end
+
+% Code that executes before app deletion
+function delete(app)
+
+% Delete UIFigure when app is deleted
+delete(app.TELEOPERATIONACCUMULATIVEMODEUIFigure)
+end
+end
+end
+
