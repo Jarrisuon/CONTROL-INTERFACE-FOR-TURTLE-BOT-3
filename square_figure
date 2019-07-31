@@ -1,0 +1,11 @@
+function square_figure(side)
+move_linear_distance(side);
+rotate_left_2(90);
+move_linear_distance(side);
+rotate_left_2(90);
+move_linear_distance(side);
+rotate_left_2(90);
+move_linear_distance(side);
+end
+
+
