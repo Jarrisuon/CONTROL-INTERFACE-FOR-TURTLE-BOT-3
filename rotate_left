@@ -1,0 +1,68 @@
+function rotate_left(angle)
+sub_odom=rossubscriber('/odom');
+msg = receive(sub_odom,1);
+current_orientation=msg.Pose.Pose.Orientation;
+quat_turtle=[current_orientation.W current_orientation.X current_orientation.Y current_orientation.Z];
+eulZYX= quat2eul(quat_turtle);
+eulZYX=rad2deg(eulZYX);
+real_orientation=eulZYX(1);
+disp('real_orientation');
+disp(real_orientation);
+
+vel_publisher = rospublisher('/cmd_vel');
+velocity_message = rosmessage(vel_publisher);
+%need to be continous , otherwise from 180 passes to -180
+
+
+%this was uncomeented
+%if(real_orientation<0)
+ %  real_orientation=real_orientation+360;
+%end
+
+desired_orientation=real_orientation+angle;
+
+if(desired_orientation>180)
+desired_orientation=desired_orientation-360;
+end
+    
+disp('desired');
+disp(desired_orientation);
+error_orientation_1=desired_orientation-real_orientation;
+disp('error at beginning');
+disp(error_orientation_1);
+tic;
+%P control for turning 90 degrees
+%OPTIMIZAR NUMERO DE VARIABLES ANTES DE PASAR APP DESIGNER
+
+%error is always (angle) in positive except in 1/4 situations
+if(error_orientation_1<0)
+    
+   	velocity_message.Angular.Z=abs(0.03*error_orientation_1);
+      	send(vel_publisher,velocity_message);
+   	pause(0.5);
+end  	 
+   
+
+while((abs(error_orientation_1)>0.3)&&(toc<7))
+    
+   velocity_message.Angular.Z=0.04*error_orientation_1;
+ 	%   velocity_message.Angular.Z=0.7;
+	send(vel_publisher,velocity_message);
+ 	pause(0.1);
+	msg = receive(sub_odom,1);
+	current_orientation=msg.Pose.Pose.Orientation;
+	quat_turtle=[current_orientation.W current_orientation.X current_orientation.Y current_orientation.Z];
+	eulZYX= quat2eul(quat_turtle);
+	eulZYX=rad2deg(eulZYX);
+	real_orientation=eulZYX(1);
+	error_orientation_1=desired_orientation-real_orientation;
+    
+   
+end
+disp('last error orientation:')
+disp(error_orientation_1);
+ velocity_message.Angular.Z=0.0;
+	send(vel_publisher,velocity_message);
+end
+
+
