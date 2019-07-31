@@ -1,0 +1,44 @@
+function orientation_desired_angle(angle)
+vel_publisher = rospublisher('/cmd_vel');
+velocity_message = rosmessage(vel_publisher);
+sub_odom= rossubscriber('/odom');
+
+desired_orientation=angle;
+ 
+msg = receive(sub_odom,1);
+orientation=msg.Pose.Pose.Orientation;
+quat_turtle=[orientation.W orientation.X orientation.Y orientation.Z];
+Euler_angles= quat2eul(quat_turtle);
+Euler_angles=rad2deg(Euler_angles);
+real_orientation=Euler_angles(1);
+ 
+ error=desired_orientation-real_orientation;
+ 
+ kp=0.04;
+ tic;
+ 
+ % as orientation is not accurate, ensure the while loop will end if 20 seconds elapse
+ while((abs(error)>0.2)&&(toc<7))
+	velocity_message.Angular.Z=kp*error;
+	send(vel_publisher,velocity_message);
+	pause(0.05);
+	toc_arr=toc;
+    
+	msg = receive(sub_odom,1);
+	orientation=msg.Pose.Pose.Orientation;
+	quat_turtle=[orientation.W orientation.X orientation.Y orientation.Z];
+	Euler_angles= quat2eul(quat_turtle);
+	Euler_angles=rad2deg(Euler_angles);
+	real_orientation=Euler_angles(1);
+    
+	error=desired_orientation-real_orientation;
+   disp(error)
+  if abs(error) < 0.2
+    	break
+  end 	 
+    
+ end
+ 
+ velocity_message.Angular.Z=0;
+	send(vel_publisher,velocity_message);
+end
