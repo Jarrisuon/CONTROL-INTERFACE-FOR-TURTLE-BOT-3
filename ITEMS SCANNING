@@ -1,0 +1,320 @@
+ITEMS SCANNING
+classdef SCANNING < matlab.apps.AppBase
+
+% Properties that correspond to app components
+properties (Access = public)
+UIFigure matlab.ui.Figure
+Panel matlab.ui.container.Panel
+SEARCHSYMBOLSButton matlab.ui.control.Button
+STOPSearchingSymbols matlab.ui.control.Button
+LeftLampLabel matlab.ui.control.Label
+LeftLamp matlab.ui.control.Lamp
+RightLampLabel matlab.ui.control.Label
+RightLamp matlab.ui.control.Lamp
+TurnBackLampLabel matlab.ui.control.Label
+TurnBackLamp matlab.ui.control.Lamp
+StopLampLabel matlab.ui.control.Label
+StopLamp matlab.ui.control.Lamp
+SearchingSymbolsLampLabel matlab.ui.control.Label
+SearchingSymbolsLamp matlab.ui.control.Lamp
+Panel_2 matlab.ui.container.Panel
+SEARCHBALLButton matlab.ui.control.Button
+STOPSearchingBall matlab.ui.control.Button
+BallfoundLampLabel matlab.ui.control.Label
+BallfoundLamp matlab.ui.control.Lamp
+SearchingBallLampLabel matlab.ui.control.Label
+SearchingBallLamp matlab.ui.control.Lamp
+end
+
+properties (Access = private)
+SearchSymbols
+SearchBall
+timerObj
+isValidSymbol
+symbolType
+orientation
+desired_orientation
+hasBall
+d
+a
+velocity_subscriber
+velocity_message
+end
+methods (Access = private)
+function checkLights(app)
+if(app.SearchBall==true)
+app.SearchingBallLamp.Color='green';
+else
+app.SearchingBallLamp.Color='red';
+end
+if(app.SearchSymbols==true)
+app.SearchingSymbolsLamp.Color='green';
+else
+app.SearchingSymbolsLamp.Color='red';
+end
+end
+end
+
+% Callbacks that handle component events
+methods (Access = private)
+
+% Code that executes after component creation
+function startupFcn(app)
+app.LeftLamp.Color='red';
+app.RightLamp.Color='red';
+app.StopLamp.Color='red';
+app.TurnBackLamp.Color='red';
+app.BallfoundLamp.Color='red';
+app.SearchingBallLamp.Color='red';
+app.SearchingSymbolsLamp.Color='red';
+app.SearchBall=false;
+app.SearchSymbols=false;
+app.timerObj = timer('Period',1.5,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj.TimerFcn = @(x,y)app.checkLights;
+start(app.timerObj);
+end
+
+% Button pushed function: SEARCHSYMBOLSButton
+function StartSearchingSymbols(app, event)
+app.SearchSymbols=true;
+while(app.SearchSymbols==true)
+move_forward();
+% pause_seconds();
+[app.isValidSymbol app.symbolType]=extract_mark();
+app.orientation=Get_current_orientation();
+if(app.isValidSymbol==1)
+if(app.symbolType==1)
+disp('turn left')
+app.desired_orientation=app.orientation+90;
+if(app.desired_orientation>180)
+app.desired_orientation=app.desired_orientation-360;
+end
+orientation_desired_angle(app.desired_orientation);
+end
+if(app.symbolType==2)
+disp('turn right')
+app.desired_orientation=app.orientation-90;
+if(app.desired_orientation<-180)
+app.desired_orientation=app.desired_orientation+360;
+end
+orientation_desired_angle(app.desired_orientation);
+end
+if(app.symbolType==4)
+app.desired_orientation=app.orientation+180;
+if(app.desired_orientation>180)
+app.desired_orientation=app.desired_orientation-360;
+end
+orientation_desired_angle(app.desired_orientation);
+disp('180');
+end
+if(app.symbolType==5)
+disp('stop')
+stop();
+app.SearchSymbols=false;
+end
+end
+end
+end
+
+% Button pushed function: SEARCHBALLButton
+function StartSearchingBall(app, event)
+app.SearchBall=true;
+[app.hasBall app.d app.a]=find_ballCV();
+while(app.hasBall==0&&app.SearchBall==true)
+app.orientation=Get_current_orientation;
+orientation_desired_angle(app.orientation+14);
+pause(1)
+end
+if(app.hasBall==1)
+stop();
+disp('found')
+pause(3)
+while((abs(app.d)>50)&&(app.SearchBall==true))
+[app.hasBall app.d app.a]=find_ballCV();
+disp('inside d:')
+disp(app.d)
+app.orientation=Get_current_orientation;
+app.velocity_subscriber=rospublisher('cmd_vel');
+app.velocity_message=rosmessage(app.velocity_subscriber);
+app.velocity_message.Angular.Z=0.001*app.d;
+send(app.velocity_subscriber,app.velocity_message);
+% if(app.d>0)
+% orientation_desired_angle(app.orientation-10)
+% else
+% orientation_desired_angle(app.orientation+10)
+% end
+pause(0.1)
+end
+app.velocity_message.Angular.Z=0.0;
+send(app.velocity_subscriber,app.velocity_message);
+disp('end of while d')
+disp(app.d)
+end
+end
+
+% Button pushed function: STOPSearchingBall
+function StopSearchingBall(app, event)
+app.SearchBall=false;
+stop();
+end
+
+% Button pushed function: STOPSearchingSymbols
+function STOPSearchingSymbolsButtonPushed(app, event)
+app.SearchSymbols=false;
+stop();
+end
+end
+
+% Component initialization
+methods (Access = private)
+
+% Create UIFigure and components
+function createComponents(app)
+
+% Create UIFigure and hide until all components are created
+app.UIFigure = uifigure('Visible', 'off');
+app.UIFigure.Position = [100 100 640 475];
+app.UIFigure.Name = 'UI Figure';
+
+% Create Panel
+app.Panel = uipanel(app.UIFigure);
+app.Panel.Position = [35 260 557 180];
+
+% Create SEARCHSYMBOLSButton
+app.SEARCHSYMBOLSButton = uibutton(app.Panel, 'push');
+app.SEARCHSYMBOLSButton.ButtonPushedFcn = createCallbackFcn(app, @StartSearchingSymbols, true);
+app.SEARCHSYMBOLSButton.FontWeight = 'bold';
+app.SEARCHSYMBOLSButton.Position = [30 52 150 76];
+app.SEARCHSYMBOLSButton.Text = 'SEARCH SYMBOLS';
+
+% Create STOPSearchingSymbols
+app.STOPSearchingSymbols = uibutton(app.Panel, 'push');
+app.STOPSearchingSymbols.ButtonPushedFcn = createCallbackFcn(app, @STOPSearchingSymbolsButtonPushed, true);
+app.STOPSearchingSymbols.FontWeight = 'bold';
+app.STOPSearchingSymbols.Position = [230 52 150 76];
+app.STOPSearchingSymbols.Text = 'STOP';
+
+% Create LeftLampLabel
+app.LeftLampLabel = uilabel(app.Panel);
+app.LeftLampLabel.HorizontalAlignment = 'right';
+app.LeftLampLabel.Position = [460 137 26 22];
+app.LeftLampLabel.Text = 'Left';
+
+% Create LeftLamp
+app.LeftLamp = uilamp(app.Panel);
+app.LeftLamp.Position = [501 137 20 20];
+
+% Create RightLampLabel
+app.RightLampLabel = uilabel(app.Panel);
+app.RightLampLabel.HorizontalAlignment = 'right';
+app.RightLampLabel.Position = [452 96 34 22];
+app.RightLampLabel.Text = 'Right';
+
+% Create RightLamp
+app.RightLamp = uilamp(app.Panel);
+app.RightLamp.Position = [501 96 20 20];
+
+% Create TurnBackLampLabel
+app.TurnBackLampLabel = uilabel(app.Panel);
+app.TurnBackLampLabel.HorizontalAlignment = 'right';
+app.TurnBackLampLabel.Position = [426 52 60 22];
+app.TurnBackLampLabel.Text = 'Turn Back';
+
+% Create TurnBackLamp
+app.TurnBackLamp = uilamp(app.Panel);
+app.TurnBackLamp.Position = [501 52 20 20];
+
+% Create StopLampLabel
+app.StopLampLabel = uilabel(app.Panel);
+app.StopLampLabel.HorizontalAlignment = 'right';
+app.StopLampLabel.Position = [456 19 30 22];
+app.StopLampLabel.Text = 'Stop';
+
+% Create StopLamp
+app.StopLamp = uilamp(app.Panel);
+app.StopLamp.Position = [501 19 20 20];
+
+% Create SearchingSymbolsLampLabel
+app.SearchingSymbolsLampLabel = uilabel(app.Panel);
+app.SearchingSymbolsLampLabel.HorizontalAlignment = 'right';
+app.SearchingSymbolsLampLabel.Position = [113 149 106 22];
+app.SearchingSymbolsLampLabel.Text = 'SearchingSymbols';
+
+% Create SearchingSymbolsLamp
+app.SearchingSymbolsLamp = uilamp(app.Panel);
+app.SearchingSymbolsLamp.Position = [234 149 20 20];
+
+% Create Panel_2
+app.Panel_2 = uipanel(app.UIFigure);
+app.Panel_2.Position = [35 47 559 181];
+
+% Create SEARCHBALLButton
+app.SEARCHBALLButton = uibutton(app.Panel_2, 'push');
+app.SEARCHBALLButton.ButtonPushedFcn = createCallbackFcn(app, @StartSearchingBall, true);
+app.SEARCHBALLButton.FontWeight = 'bold';
+app.SEARCHBALLButton.Position = [34 59 150 76];
+app.SEARCHBALLButton.Text = 'SEARCH BALL';
+
+% Create STOPSearchingBall
+app.STOPSearchingBall = uibutton(app.Panel_2, 'push');
+app.STOPSearchingBall.ButtonPushedFcn = createCallbackFcn(app, @StopSearchingBall, true);
+app.STOPSearchingBall.FontWeight = 'bold';
+app.STOPSearchingBall.Position = [270 59 150 76];
+app.STOPSearchingBall.Text = 'STOP';
+
+% Create BallfoundLampLabel
+app.BallfoundLampLabel = uilabel(app.Panel_2);
+app.BallfoundLampLabel.HorizontalAlignment = 'right';
+app.BallfoundLampLabel.Position = [434 113 59 22];
+app.BallfoundLampLabel.Text = 'Ball found';
+
+% Create BallfoundLamp
+app.BallfoundLamp = uilamp(app.Panel_2);
+app.BallfoundLamp.Position = [508 113 20 20];
+
+% Create SearchingBallLampLabel
+app.SearchingBallLampLabel = uilabel(app.Panel_2);
+app.SearchingBallLampLabel.HorizontalAlignment = 'right';
+app.SearchingBallLampLabel.Position = [153 134 83 22];
+app.SearchingBallLampLabel.Text = 'Searching Ball';
+
+% Create SearchingBallLamp
+app.SearchingBallLamp = uilamp(app.Panel_2);
+app.SearchingBallLamp.Position = [251 134 20 20];
+
+% Show the figure after all components are created
+app.UIFigure.Visible = 'on';
+end
+end
+
+% App creation and deletion
+methods (Access = public)
+
+% Construct app
+function app = SCANNING
+
+% Create UIFigure and components
+createComponents(app)
+
+% Register the app with App Designer
+registerApp(app, app.UIFigure)
+
+% Execute the startup function
+runStartupFcn(app, @startupFcn)
+
+if nargout == 0
+clear app
+end
+end
+
+% Code that executes before app deletion
+function delete(app)
+
+% Delete UIFigure when app is deleted
+delete(app.UIFigure)
+end
+end
+end
+
