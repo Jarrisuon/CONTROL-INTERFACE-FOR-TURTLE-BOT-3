@@ -1,0 +1,250 @@
+FIGURES
+classdef FIGURES_2 < matlab.apps.AppBase
+
+% Properties that correspond to app components
+properties (Access = public)
+FIGURESMODEUIFigure matlab.ui.Figure
+PLOTScatterButton matlab.ui.control.Button
+SetthedimensionandpressthebuttonPanel matlab.ui.container.Panel
+SQUAREButton matlab.ui.control.Button
+CIRCLEButton matlab.ui.control.Button
+TRIANGLEButton matlab.ui.control.Button
+CircleRadiusEditField matlab.ui.control.NumericEditField
+SideLengthEditFieldLabel_2 matlab.ui.control.Label
+TriangleSideEditField matlab.ui.control.NumericEditField
+SquareSideEditFieldLabel matlab.ui.control.Label
+SquareSideEditField matlab.ui.control.NumericEditField
+SideLengthEditFieldLabel_5 matlab.ui.control.Label
+POSITIONMONITORINGPanel matlab.ui.container.Panel
+UIAxes matlab.ui.control.UIAxes
+UIAxes_2 matlab.ui.control.UIAxes
+end
+
+properties (Access = private)
+timerObj % Timer object for updating periodically figures
+timerObj2
+odom_subscriber
+odom_message
+position_x
+position_y
+end
+methods (Access = private)
+function update_plot(app)
+plot(app.UIAxes,app.position_x,'red');
+plot(app.UIAxes_2,app.position_y,'blue');
+% scatter(app.UIAxes2,app.position_x,app.position_y)
+end
+function accumulate_data(app)
+app.odom_subscriber=rossubscriber('/odom');
+app.odom_message=receive(app.odom_subscriber,0.5);
+app.position_x=[app.position_x app.odom_message.Pose.Pose.Position.X];
+app.position_y=[app.position_y app.odom_message.Pose.Pose.Position.Y];
+end
+end
+
+% Callbacks that handle component events
+methods (Access = private)
+
+% Code that executes after component creation
+function startupFcn(app)
+%app.timerObj = timer('TimerFcn'), @(~,~)update_plot(app), 'Period', 0.5, 'ExecutionMode', 'fixedSpacing', 'BusyMode', 'drop');
+app.timerObj = timer('Period',1.5,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj.TimerFcn = @(x,y)app.update_plot;
+start(app.timerObj);
+app.timerObj2 = timer('Period',0.1,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj2.TimerFcn = @(x,y)app.accumulate_data;
+start(app.timerObj2);
+%app.odom_subscriber=rossubscriber('/odom');
+app.position_x=[];
+app.position_y=[];
+end
+
+% Button pushed function: SQUAREButton
+function CallSquare(app, event)
+square_figure(app.SquareSideEditField.Value);
+end
+
+% Button pushed function: CIRCLEButton
+function CallCircle(app, event)
+circle_figure(app.CircleRadiusEditField.Value)
+end
+
+% Button pushed function: PLOTScatterButton
+function CallScatter(app, event)
+figure(1)
+scatter(app.position_x, app.position_y);
+title('SCATTER PLOT')
+end
+
+% Button pushed function: TRIANGLEButton
+function CallTriangle(app, event)
+pause(2)
+triangle_figure(app.TriangleSideEditField.Value);
+end
+
+% Callback function
+function CallSpiral(app, event)
+spiral_figure(app.LastSpiralCircleEditField.Value)
+end
+
+% Close request function: FIGURESMODEUIFigure
+function FIGURESMODEUIFigureCloseRequest(app, event)
+stop(app.timerObj)
+stop(app.timerObj2)
+delete(app)
+end
+
+% Callback function
+function CallEight(app, event)
+eight_figure(app.EightRadiusEditField)
+end
+end
+
+% Component initialization
+methods (Access = private)
+
+% Create UIFigure and components
+function createComponents(app)
+
+% Create FIGURESMODEUIFigure and hide until all components are created
+app.FIGURESMODEUIFigure = uifigure('Visible', 'off');
+app.FIGURESMODEUIFigure.Position = [100 100 950 544];
+app.FIGURESMODEUIFigure.Name = 'FIGURES MODE';
+app.FIGURESMODEUIFigure.CloseRequestFcn = createCallbackFcn(app, @FIGURESMODEUIFigureCloseRequest, true);
+
+% Create PLOTScatterButton
+app.PLOTScatterButton = uibutton(app.FIGURESMODEUIFigure, 'push');
+app.PLOTScatterButton.ButtonPushedFcn = createCallbackFcn(app, @CallScatter, true);
+app.PLOTScatterButton.BackgroundColor = [0.349 0.7922 0.8706];
+app.PLOTScatterButton.FontWeight = 'bold';
+app.PLOTScatterButton.Position = [122 156 101 69];
+app.PLOTScatterButton.Text = 'PLOT Scatter';
+
+% Create SetthedimensionandpressthebuttonPanel
+app.SetthedimensionandpressthebuttonPanel = uipanel(app.FIGURESMODEUIFigure);
+app.SetthedimensionandpressthebuttonPanel.TitlePosition = 'centertop';
+app.SetthedimensionandpressthebuttonPanel.Title = 'Set the dimension and press the button!';
+app.SetthedimensionandpressthebuttonPanel.BackgroundColor = [0.9294 0.698 0.698];
+app.SetthedimensionandpressthebuttonPanel.FontWeight = 'bold';
+app.SetthedimensionandpressthebuttonPanel.Position = [44 277 258 253];
+
+% Create SQUAREButton
+app.SQUAREButton = uibutton(app.SetthedimensionandpressthebuttonPanel, 'push');
+app.SQUAREButton.ButtonPushedFcn = createCallbackFcn(app, @CallSquare, true);
+app.SQUAREButton.FontWeight = 'bold';
+app.SQUAREButton.Position = [136 164 109 22];
+app.SQUAREButton.Text = 'SQUARE';
+
+% Create CIRCLEButton
+app.CIRCLEButton = uibutton(app.SetthedimensionandpressthebuttonPanel, 'push');
+app.CIRCLEButton.ButtonPushedFcn = createCallbackFcn(app, @CallCircle, true);
+app.CIRCLEButton.FontWeight = 'bold';
+app.CIRCLEButton.Position = [146 58 100 22];
+app.CIRCLEButton.Text = 'CIRCLE';
+
+% Create TRIANGLEButton
+app.TRIANGLEButton = uibutton(app.SetthedimensionandpressthebuttonPanel, 'push');
+app.TRIANGLEButton.ButtonPushedFcn = createCallbackFcn(app, @CallTriangle, true);
+app.TRIANGLEButton.FontWeight = 'bold';
+app.TRIANGLEButton.Position = [141 111 100 22];
+app.TRIANGLEButton.Text = 'TRIANGLE';
+
+% Create CircleRadiusEditField
+app.CircleRadiusEditField = uieditfield(app.SetthedimensionandpressthebuttonPanel, 'numeric');
+app.CircleRadiusEditField.HorizontalAlignment = 'center';
+app.CircleRadiusEditField.FontWeight = 'bold';
+app.CircleRadiusEditField.Position = [15 58 100 22];
+
+% Create SideLengthEditFieldLabel_2
+app.SideLengthEditFieldLabel_2 = uilabel(app.SetthedimensionandpressthebuttonPanel);
+app.SideLengthEditFieldLabel_2.HorizontalAlignment = 'right';
+app.SideLengthEditFieldLabel_2.FontWeight = 'bold';
+app.SideLengthEditFieldLabel_2.Position = [26 79 82 22];
+app.SideLengthEditFieldLabel_2.Text = 'Circle Radius';
+
+% Create TriangleSideEditField
+app.TriangleSideEditField = uieditfield(app.SetthedimensionandpressthebuttonPanel, 'numeric');
+app.TriangleSideEditField.HorizontalAlignment = 'center';
+app.TriangleSideEditField.FontWeight = 'bold';
+app.TriangleSideEditField.Position = [16 111 100 22];
+
+% Create SquareSideEditFieldLabel
+app.SquareSideEditFieldLabel = uilabel(app.SetthedimensionandpressthebuttonPanel);
+app.SquareSideEditFieldLabel.HorizontalAlignment = 'center';
+app.SquareSideEditFieldLabel.FontWeight = 'bold';
+app.SquareSideEditFieldLabel.Position = [28 185 75 22];
+app.SquareSideEditFieldLabel.Text = 'Square Side';
+
+% Create SquareSideEditField
+app.SquareSideEditField = uieditfield(app.SetthedimensionandpressthebuttonPanel, 'numeric');
+app.SquareSideEditField.HorizontalAlignment = 'center';
+app.SquareSideEditField.FontWeight = 'bold';
+app.SquareSideEditField.Position = [15 164 100 22];
+
+% Create SideLengthEditFieldLabel_5
+app.SideLengthEditFieldLabel_5 = uilabel(app.SetthedimensionandpressthebuttonPanel);
+app.SideLengthEditFieldLabel_5.HorizontalAlignment = 'right';
+app.SideLengthEditFieldLabel_5.FontWeight = 'bold';
+app.SideLengthEditFieldLabel_5.Position = [25 132 80 22];
+app.SideLengthEditFieldLabel_5.Text = 'Triangle Side';
+
+% Create POSITIONMONITORINGPanel
+app.POSITIONMONITORINGPanel = uipanel(app.FIGURESMODEUIFigure);
+app.POSITIONMONITORINGPanel.TitlePosition = 'centertop';
+app.POSITIONMONITORINGPanel.Title = 'POSITION MONITORING ';
+app.POSITIONMONITORINGPanel.BackgroundColor = [0.6431 0.9804 0.4];
+app.POSITIONMONITORINGPanel.FontWeight = 'bold';
+app.POSITIONMONITORINGPanel.Position = [344 3 579 534];
+
+% Create UIAxes
+app.UIAxes = uiaxes(app.POSITIONMONITORINGPanel);
+title(app.UIAxes, 'X Position')
+xlabel(app.UIAxes, 'time')
+ylabel(app.UIAxes, 'X (m)')
+app.UIAxes.Position = [46 264 498 242];
+
+% Create UIAxes_2
+app.UIAxes_2 = uiaxes(app.POSITIONMONITORINGPanel);
+title(app.UIAxes_2, 'Y Position')
+xlabel(app.UIAxes_2, 'time')
+ylabel(app.UIAxes_2, 'Y(m)')
+app.UIAxes_2.Position = [46 7 502 247];
+
+% Show the figure after all components are created
+app.FIGURESMODEUIFigure.Visible = 'on';
+end
+end
+
+% App creation and deletion
+methods (Access = public)
+
+% Construct app
+function app = FIGURES_2
+
+% Create UIFigure and components
+createComponents(app)
+
+% Register the app with App Designer
+registerApp(app, app.FIGURESMODEUIFigure)
+
+% Execute the startup function
+runStartupFcn(app, @startupFcn)
+
+if nargout == 0
+clear app
+end
+end
+
+% Code that executes before app deletion
+function delete(app)
+
+% Delete UIFigure when app is deleted
+delete(app.FIGURESMODEUIFigure)
+end
+end
+end
+
