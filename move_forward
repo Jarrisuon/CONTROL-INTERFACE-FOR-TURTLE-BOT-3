@@ -1,0 +1,9 @@
+function move_forward()
+%declare publisher
+vel_publisher = rospublisher('/cmd_vel');
+velocity_message = rosmessage(vel_publisher);
+%create message
+velocity_message.Linear.X=0.01;
+ send(vel_publisher,velocity_message);
+ pause(3)
+end
