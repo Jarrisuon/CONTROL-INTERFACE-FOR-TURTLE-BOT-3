@@ -1,0 +1,84 @@
+function position_control(desired_position_x,desired_position_y)
+
+sub_odom=rossubscriber('/odom');
+msg = receive(sub_odom,1);
+
+vel_publisher = rospublisher('/cmd_vel');
+velocity_message = rosmessage(vel_publisher);
+
+
+orientate(desired_position_x,desired_position_y);
+
+current_position_x=msg.Pose.Pose.Position.X;
+current_position_y=msg.Pose.Pose.Position.Y;
+
+error_linear=sqrt(power((current_position_x-desired_position_x),2)+power((current_position_y-desired_position_y),2));
+disp('start moving fwd');
+disp('error linear beginning:');
+disp(error_linear);
+    
+
+orientation=msg.Pose.Pose.Orientation;
+quat_turtle=[orientation.W orientation.X orientation.Y orientation.Z];
+Euler_angles= quat2eul(quat_turtle);
+Euler_angles=rad2deg(Euler_angles);
+real_orientation=Euler_angles(1);
+desired_orientation=Get_desired_angle(desired_position_x,desired_position_y);
+if(desired_orientation>180)
+  desired_orientation=desired_orientation-360;
+end
+    
+error_angular=desired_orientation-real_orientation;
+%error_angular=0;
+disp('error angular beginning:');
+disp(error_angular);
+%pause(2);
+tic;
+kp=0.3;
+while((abs(error_linear)>0.015)&&(toc<15))
+   velocity_message.Linear.X=kp*error_linear;
+   velocity_message.Angular.Z=0.015*error_angular;
+   disp('angular');
+   disp(velocity_message.Angular.Z)
+   
+   
+	send(vel_publisher,velocity_message);
+	pause(0.05);
+	msg = receive(sub_odom,1);
+	current_position_x=msg.Pose.Pose.Position.X;
+	current_position_y=msg.Pose.Pose.Position.Y;
+	error_linear=sqrt(power((current_position_x-desired_position_x),2)+power((current_position_y-desired_position_y),2));
+    
+	desired_orientation=Get_desired_angle(desired_position_x,desired_position_y);
+	if(desired_orientation>180)
+   	desired_orientation=desired_orientation-360;
+	end
+	orientation=msg.Pose.Pose.Orientation;
+	quat_turtle=[orientation.W orientation.X orientation.Y orientation.Z];
+	Euler_angles= quat2eul(quat_turtle);
+	Euler_angles=rad2deg(Euler_angles);
+	real_orientation=Euler_angles(1);
+	error_angular=desired_orientation-real_orientation;
+    
+    
+	if(abs(error_linear)<0.015)
+    	break
+	end
+    
+end
+
+disp('last position:X,Y');
+disp(current_position_x);
+disp(current_position_y);
+disp('last LINEAR error');
+disp(error_linear);
+disp('last error angular')
+disp(error_angular);
+
+
+velocity_message.Linear.X=0;
+velocity_message.Angular.Z=0;
+send(vel_publisher,velocity_message);
+
+
+
