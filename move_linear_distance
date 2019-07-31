@@ -1,0 +1,33 @@
+function move_linear_distance(length)
+    
+sub_odom=rossubscriber('/odom');
+msg = receive(sub_odom,1);
+
+vel_publisher = rospublisher('/cmd_vel');
+velocity_message = rosmessage(vel_publisher);
+
+initial_position_x=msg.Pose.Pose.Position.X;
+initial_position_y=msg.Pose.Pose.Position.Y;
+
+error_linear_1=length;
+
+tic
+%position_x=evalin('base','position_x');
+while((abs(error_linear_1)>0.01)&&(toc<9))
+	velocity_message.Linear.X=0.65*error_linear_1;
+	send(vel_publisher,velocity_message);
+	pause(0.05);
+	msg = receive(sub_odom,1);
+	current_position_x=msg.Pose.Pose.Position.X;
+	current_position_y=msg.Pose.Pose.Position.Y;
+	error_linear_1=length-sqrt(power((current_position_x-initial_position_x),2)+power((current_position_y-initial_position_y),2));
+
+end
+disp('last error linear');
+disp(error_linear_1);
+
+ velocity_message.Linear.X=0.0;
+	send(vel_publisher,velocity_message);
+	pause(1);
+
+end
