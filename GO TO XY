@@ -1,0 +1,287 @@
+GO TO XY 
+classdef GoToXYZ_MULTIPLE_ginput < matlab.apps.AppBase
+
+% Properties that correspond to app components
+properties (Access = public)
+GOTOXYMODEUIFigure matlab.ui.Figure
+UIAxes matlab.ui.control.UIAxes
+UIAxes_2 matlab.ui.control.UIAxes
+GOButton matlab.ui.control.Button
+ResetgraphButton matlab.ui.control.Button
+PlotONOFFButton matlab.ui.control.Button
+Lamp matlab.ui.control.Lamp
+PLOTSCATTERButton matlab.ui.control.Button
+NumberofpointsEditFieldLabel matlab.ui.control.Label
+Numberofpoints matlab.ui.control.NumericEditField
+OPENButton matlab.ui.control.Button
+end
+
+properties (Access = private)
+timerObj
+timerObj2
+odom_subscriber
+odom_message
+position_x
+position_y
+desired_x
+desired_y
+plot_on
+x
+y
+counter
+iterator
+end
+methods (Access = private)
+function updateplots(app)
+if(app.plot_on)
+plot(app.UIAxes, app.desired_x,'red');
+hold(app.UIAxes,'on');
+plot(app.UIAxes,app.position_x,'blue');
+hold(app.UIAxes,'on');
+legend(app.UIAxes,'desired x postion','real x position','location','best')
+hold(app.UIAxes,'off');
+plot(app.UIAxes_2, app.desired_y,'red');
+hold(app.UIAxes_2,'on');
+plot(app.UIAxes_2,app.position_y,'blue');
+hold(app.UIAxes_2,'on');
+legend(app.UIAxes_2,'desired y postion','real y position','location','best')
+hold(app.UIAxes_2,'off');
+end
+end
+function accumulate_data(app)
+app.odom_subscriber=rossubscriber('/odom');
+app.odom_message=receive(app.odom_subscriber,0.5);
+app.position_x=[app.position_x app.odom_message.Pose.Pose.Position.X];
+app.position_y=[app.position_y app.odom_message.Pose.Pose.Position.Y];
+%app.desired_x=[app.desired_x app.x];
+%app.desired_y=[app.desired_y app.y];
+% app.position_x=[app.position_x 2];
+% app.position_y=[app.position_y 3];
+app.desired_x=[app.desired_x app.x(app.counter+1)];
+app.desired_y=[app.desired_y app.y(app.counter+1)];
+% if(app.counter==0)
+% app.desired_x=[app.desired_x app.x(1)];
+% app.desired_y=[app.desired_y app.y(1)];
+% disp('estoy en cero')
+% elseif(app.counter==1)
+% app.desired_x=[app.desired_x app.x(2)];
+% app.desired_y=[app.desired_y app.y(2)];
+% disp('estoy en uno')
+% elseif()
+% app.desired_x=[app.desired_x app.x(3)];
+% app.desired_y=[app.desired_y app.y(3)];
+% disp('estoy en dosss')
+% end
+end
+end
+
+% Callbacks that handle component events
+methods (Access = private)
+
+% Code that executes after component creation
+function startupFcn(app)
+%app.timerObj = timer('TimerFcn'), @(~,~)update_plot(app), 'Period', 0.5, 'ExecutionMode', 'fixedSpacing', 'BusyMode', 'drop');
+app.timerObj = timer('Period',1.5,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj.TimerFcn = @(x,y)app.updateplots;
+start(app.timerObj);
+app.timerObj2 = timer('Period',0.1,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj2.TimerFcn = @(x,y)app.accumulate_data;
+% app.odom_subscriber=rossubscriber('/odom');
+app.position_x=[];
+app.position_y=[];
+app.desired_x=[];
+app.desired_y=[];
+app.plot_on=false;
+app.Lamp.Color='Red';
+%scatter([],[]);
+% title('Select a point')
+% axis([-1 1],[-1 1])
+end
+
+% Button pushed function: GOButton
+function CallPosition(app, event)
+%position_control(app.x,app.y)
+app.iterator=0;
+while(app.counter<app.Numberofpoints.Value)
+%pause_seconds();
+position_control(app.x(app.counter+1),app.y(app.counter+1))
+app.counter=app.counter+1;
+disp(' end of round,counter...:');
+disp(app.counter)
+end
+disp('end');
+%
+% pause_seconds();
+% disp('counter:')
+% disp(app.counter)
+% app.counter=app.counter+1;
+% pause_seconds();
+% app.counter=app.counter+1;
+end
+
+% Button pushed function: ResetgraphButton
+function ResetData(app, event)
+app.position_x=[];
+app.position_y=[];
+app.desired_x=[];
+app.desired_y=[];
+end
+
+% Button pushed function: PlotONOFFButton
+function ChangePlot(app, event)
+app.plot_on=~app.plot_on;
+if(app.plot_on)
+app.Lamp.Color='Green';
+else
+app.Lamp.Color='Red';
+end
+end
+
+% Button pushed function: PLOTSCATTERButton
+function plotScatter(app, event)
+%scatter(app.position_x,app.position_y)
+%scatter([0 1 2],[1 3 4])
+figure(1)
+scatter(app.position_x,app.position_y,'x')
+hold on
+scatter(app.x,app.y,'red','x','LineWidth',4)
+hold on
+title('SCATTER TRAYECTORY VIEW')
+hold off;
+end
+
+% Button pushed function: OPENButton
+function OpenFigure(app, event)
+figure(1)
+[app.x, app.y]=ginput(app.Numberofpoints.Value);
+close(1)
+app.counter=0;
+start(app.timerObj2);
+end
+end
+
+% Component initialization
+methods (Access = private)
+
+% Create UIFigure and components
+function createComponents(app)
+
+% Create GOTOXYMODEUIFigure and hide until all components are created
+app.GOTOXYMODEUIFigure = uifigure('Visible', 'off');
+app.GOTOXYMODEUIFigure.Color = [0.4941 0.7373 0.8];
+app.GOTOXYMODEUIFigure.Colormap = [0.2431 0.149 0.6588;0.251 0.1647 0.7059;0.2588 0.1804 0.7529;0.2627 0.1961 0.7961;0.2706 0.2157 0.8353;0.2745 0.2353 0.8706;0.2784 0.2549 0.898;0.2784 0.2784 0.9216;0.2824 0.302 0.9412;0.2824 0.3216 0.9569;0.2784 0.3451 0.9725;0.2745 0.3686 0.9843;0.2706 0.3882 0.9922;0.2588 0.4118 0.9961;0.2431 0.4353 1;0.2196 0.4588 0.9961;0.1961 0.4863 0.9882;0.1843 0.5059 0.9804;0.1804 0.5294 0.9686;0.1765 0.549 0.9529;0.1686 0.5686 0.9373;0.1529 0.5922 0.9216;0.1451 0.6078 0.9098;0.1373 0.6275 0.898;0.1255 0.6471 0.8902;0.1098 0.6627 0.8745;0.0941 0.6784 0.8588;0.0706 0.6941 0.8392;0.0314 0.7098 0.8157;0.0039 0.7216 0.7922;0.0078 0.7294 0.7647;0.0431 0.7412 0.7412;0.098 0.749 0.7137;0.1412 0.7569 0.6824;0.1725 0.7686 0.6549;0.1922 0.7765 0.6235;0.2157 0.7843 0.5922;0.2471 0.7922 0.5569;0.2902 0.7961 0.5176;0.3412 0.8 0.4784;0.3922 0.8039 0.4353;0.4471 0.8039 0.3922;0.5059 0.8 0.349;0.5608 0.7961 0.3059;0.6157 0.7882 0.2627;0.6706 0.7804 0.2235;0.7255 0.7686 0.1922;0.7725 0.7608 0.1647;0.8196 0.749 0.1529;0.8627 0.7412 0.1608;0.902 0.7333 0.1765;0.9412 0.7294 0.2118;0.9725 0.7294 0.2392;0.9961 0.7451 0.2353;0.9961 0.7647 0.2196;0.9961 0.7882 0.2039;0.9882 0.8118 0.1882;0.9804 0.8392 0.1765;0.9686 0.8627 0.1647;0.9608 0.8902 0.1529;0.9608 0.9137 0.1412;0.9647 0.9373 0.1255;0.9686 0.9608 0.1059;0.9765 0.9843 0.0824;1 1 1;1 1 1];
+app.GOTOXYMODEUIFigure.Position = [100 100 1183 480];
+app.GOTOXYMODEUIFigure.Name = 'GO TO (X, Y) MODE';
+
+% Create UIAxes
+app.UIAxes = uiaxes(app.GOTOXYMODEUIFigure);
+title(app.UIAxes, 'X Position')
+xlabel(app.UIAxes, 'time')
+ylabel(app.UIAxes, 'X(m)')
+app.UIAxes.BackgroundColor = [1 0.4118 0.1608];
+app.UIAxes.Position = [11 19 562 295];
+
+% Create UIAxes_2
+app.UIAxes_2 = uiaxes(app.GOTOXYMODEUIFigure);
+title(app.UIAxes_2, 'Y Position')
+xlabel(app.UIAxes_2, 'time')
+ylabel(app.UIAxes_2, 'Y (m)')
+app.UIAxes_2.BackgroundColor = [1 0.4118 0.1608];
+app.UIAxes_2.Position = [609 15 562 299];
+
+% Create GOButton
+app.GOButton = uibutton(app.GOTOXYMODEUIFigure, 'push');
+app.GOButton.ButtonPushedFcn = createCallbackFcn(app, @CallPosition, true);
+app.GOButton.BackgroundColor = [1 0 1];
+app.GOButton.FontSize = 19;
+app.GOButton.FontWeight = 'bold';
+app.GOButton.Position = [314 362 142 74];
+app.GOButton.Text = 'GO';
+
+% Create ResetgraphButton
+app.ResetgraphButton = uibutton(app.GOTOXYMODEUIFigure, 'push');
+app.ResetgraphButton.ButtonPushedFcn = createCallbackFcn(app, @ResetData, true);
+app.ResetgraphButton.BackgroundColor = [1 1 0];
+app.ResetgraphButton.FontWeight = 'bold';
+app.ResetgraphButton.Position = [691 386 95 39];
+app.ResetgraphButton.Text = 'Reset graph';
+
+% Create PlotONOFFButton
+app.PlotONOFFButton = uibutton(app.GOTOXYMODEUIFigure, 'push');
+app.PlotONOFFButton.ButtonPushedFcn = createCallbackFcn(app, @ChangePlot, true);
+app.PlotONOFFButton.BackgroundColor = [0.4667 0.6745 0.1882];
+app.PlotONOFFButton.FontWeight = 'bold';
+app.PlotONOFFButton.Position = [691 323 95 39];
+app.PlotONOFFButton.Text = 'Plot ON/OFF';
+
+% Create Lamp
+app.Lamp = uilamp(app.GOTOXYMODEUIFigure);
+app.Lamp.Position = [835 332 20 20];
+
+% Create PLOTSCATTERButton
+app.PLOTSCATTERButton = uibutton(app.GOTOXYMODEUIFigure, 'push');
+app.PLOTSCATTERButton.ButtonPushedFcn = createCallbackFcn(app, @plotScatter, true);
+app.PLOTSCATTERButton.BackgroundColor = [0.6 0.2157 0.5059];
+app.PLOTSCATTERButton.FontWeight = 'bold';
+app.PLOTSCATTERButton.Position = [965 361 110 39];
+app.PLOTSCATTERButton.Text = 'PLOT SCATTER ';
+
+% Create NumberofpointsEditFieldLabel
+app.NumberofpointsEditFieldLabel = uilabel(app.GOTOXYMODEUIFigure);
+app.NumberofpointsEditFieldLabel.HorizontalAlignment = 'right';
+app.NumberofpointsEditFieldLabel.Position = [29 399 97 22];
+app.NumberofpointsEditFieldLabel.Text = 'Number of points';
+
+% Create Numberofpoints
+app.Numberofpoints = uieditfield(app.GOTOXYMODEUIFigure, 'numeric');
+app.Numberofpoints.RoundFractionalValues = 'on';
+app.Numberofpoints.HorizontalAlignment = 'center';
+app.Numberofpoints.Position = [29 378 100 22];
+
+% Create OPENButton
+app.OPENButton = uibutton(app.GOTOXYMODEUIFigure, 'push');
+app.OPENButton.ButtonPushedFcn = createCallbackFcn(app, @OpenFigure, true);
+app.OPENButton.BackgroundColor = [1 0 1];
+app.OPENButton.FontSize = 19;
+app.OPENButton.FontWeight = 'bold';
+app.OPENButton.Position = [146 361 142 74];
+app.OPENButton.Text = 'OPEN';
+
+% Show the figure after all components are created
+app.GOTOXYMODEUIFigure.Visible = 'on';
+end
+end
+
+% App creation and deletion
+methods (Access = public)
+
+% Construct app
+function app = GoToXYZ_MULTIPLE_ginput
+
+% Create UIFigure and components
+createComponents(app)
+
+% Register the app with App Designer
+registerApp(app, app.GOTOXYMODEUIFigure)
+
+% Execute the startup function
+runStartupFcn(app, @startupFcn)
+
+if nargout == 0
+clear app
+end
+end
+
+% Code that executes before app deletion
+function delete(app)
+
+% Delete UIFigure when app is deleted
+delete(app.GOTOXYMODEUIFigure)
+end
+end
+end
+
