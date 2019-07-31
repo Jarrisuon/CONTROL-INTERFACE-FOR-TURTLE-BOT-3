@@ -1,0 +1,188 @@
+ORIENTATION CONTROL 
+classdef ORIENTATION_CONTROL < matlab.apps.AppBase
+
+% Properties that correspond to app components
+properties (Access = public)
+ORIENTATIONCONTROLUIFigure matlab.ui.Figure
+UIAxes matlab.ui.control.UIAxes
+SelectdesiredorientationandpressGOPanel matlab.ui.container.Panel
+DesiredorientationEditField matlab.ui.control.NumericEditField
+GOButton matlab.ui.control.Button
+OPENFIGUREButton matlab.ui.control.Button
+DesiredorientationLabel matlab.ui.control.Label
+end
+
+properties (Access = private)
+timerObj
+timerObj2
+orientation
+odom_subscriber
+odom_message
+orientation_2
+quaternion
+eulZYX
+desired_orientation
+error
+error_accumulated
+end
+methods (Access = private)
+function update_plot(app)
+plot(app.UIAxes,app.orientation,'r');
+hold(app.UIAxes,'on');
+plot(app.UIAxes,app.error_accumulated,'b');
+hold(app.UIAxes,'on');
+plot(app.UIAxes,app.desired_orientation,'m');
+hold(app.UIAxes,'on');
+legend(app.UIAxes,'real orientation','error','desired orientation','location','best')
+hold(app.UIAxes,'off');
+end
+function accumulate_data(app)
+app.odom_subscriber=rossubscriber('/odom');
+app.odom_message=receive(app.odom_subscriber,0.5);
+app.orientation_2=app.odom_message.Pose.Pose.Orientation;
+app.quaternion=[app.orientation_2.W app.orientation_2.X app.orientation_2.Y app.orientation_2.Z];
+app.eulZYX= quat2eul(app.quaternion);
+app.eulZYX=rad2deg(app.eulZYX);
+app.orientation=[app.orientation app.eulZYX(1)];
+app.desired_orientation=[app.desired_orientation app.DesiredorientationEditField.Value];
+app.error=app.DesiredorientationEditField.Value-app.eulZYX(1);
+app.error_accumulated=[app.error_accumulated app.error];
+end
+end
+
+% Callbacks that handle component events
+methods (Access = private)
+
+% Code that executes after component creation
+function startupFcn(app)
+app.timerObj = timer('Period',1.5,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj.TimerFcn = @(x,y)app.update_plot;
+start(app.timerObj);
+app.timerObj2 = timer('Period',0.1,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj2.TimerFcn = @(x,y)app.accumulate_data;
+start(app.timerObj2);
+app.desired_orientation=[];
+app.error=[];
+app.orientation=[];
+app.desired_orientation=[];
+end
+
+% Button pushed function: GOButton
+function CallOrientation(app, event)
+orientation_desired_angle(app.DesiredorientationEditField.Value)
+end
+
+% Close request function: ORIENTATIONCONTROLUIFigure
+function ORIENTATIONCONTROLUIFigureCloseRequest(app, event)
+stop(app.timerObj);
+stop(app.timerObj2);
+delete(app)
+end
+
+% Button pushed function: OPENFIGUREButton
+function OpenFigure(app, event)
+figure(1)
+plot(app.orientation,'r');
+hold('on');
+plot(app.error_accumulated,'b');
+hold('on');
+plot(app.desired_orientation,'m');
+hold('on');
+legend('real orientation','error','desired orientation');
+hold('off');
+end
+end
+
+% Component initialization
+methods (Access = private)
+
+% Create UIFigure and components
+function createComponents(app)
+
+% Create ORIENTATIONCONTROLUIFigure and hide until all components are created
+app.ORIENTATIONCONTROLUIFigure = uifigure('Visible', 'off');
+app.ORIENTATIONCONTROLUIFigure.Color = [0.7373 0.7373 0.9608];
+app.ORIENTATIONCONTROLUIFigure.Position = [100 100 864 480];
+app.ORIENTATIONCONTROLUIFigure.Name = 'ORIENTATION CONTROL';
+app.ORIENTATIONCONTROLUIFigure.CloseRequestFcn = createCallbackFcn(app, @ORIENTATIONCONTROLUIFigureCloseRequest, true);
+
+% Create UIAxes
+app.UIAxes = uiaxes(app.ORIENTATIONCONTROLUIFigure);
+title(app.UIAxes, 'Orientation')
+xlabel(app.UIAxes, 'TIme')
+ylabel(app.UIAxes, 'Degrees')
+app.UIAxes.Position = [248 42 595 420];
+
+% Create SelectdesiredorientationandpressGOPanel
+app.SelectdesiredorientationandpressGOPanel = uipanel(app.ORIENTATIONCONTROLUIFigure);
+app.SelectdesiredorientationandpressGOPanel.Title = 'Select desired orientation and press GO!';
+app.SelectdesiredorientationandpressGOPanel.BackgroundColor = [0.9412 0.9412 0.5451];
+app.SelectdesiredorientationandpressGOPanel.Position = [17 131 223 221];
+
+% Create DesiredorientationEditField
+app.DesiredorientationEditField = uieditfield(app.SelectdesiredorientationandpressGOPanel, 'numeric');
+app.DesiredorientationEditField.HorizontalAlignment = 'center';
+app.DesiredorientationEditField.FontWeight = 'bold';
+app.DesiredorientationEditField.BackgroundColor = [0.9137 0.5765 0.9804];
+app.DesiredorientationEditField.Position = [60 139 100 22];
+
+% Create GOButton
+app.GOButton = uibutton(app.SelectdesiredorientationandpressGOPanel, 'push');
+app.GOButton.ButtonPushedFcn = createCallbackFcn(app, @CallOrientation, true);
+app.GOButton.BackgroundColor = [0 1 0];
+app.GOButton.FontWeight = 'bold';
+app.GOButton.Position = [60 99 100 22];
+app.GOButton.Text = 'GO';
+
+% Create OPENFIGUREButton
+app.OPENFIGUREButton = uibutton(app.SelectdesiredorientationandpressGOPanel, 'push');
+app.OPENFIGUREButton.ButtonPushedFcn = createCallbackFcn(app, @OpenFigure, true);
+app.OPENFIGUREButton.BackgroundColor = [1 0.4118 0.1608];
+app.OPENFIGUREButton.FontWeight = 'bold';
+app.OPENFIGUREButton.Position = [60 45 100 22];
+app.OPENFIGUREButton.Text = 'OPEN FIGURE';
+
+% Create DesiredorientationLabel
+app.DesiredorientationLabel = uilabel(app.SelectdesiredorientationandpressGOPanel);
+app.DesiredorientationLabel.FontWeight = 'bold';
+app.DesiredorientationLabel.Position = [53 160 115 22];
+app.DesiredorientationLabel.Text = 'Desired orientation';
+
+% Show the figure after all components are created
+app.ORIENTATIONCONTROLUIFigure.Visible = 'on';
+end
+end
+
+% App creation and deletion
+methods (Access = public)
+
+% Construct app
+function app = ORIENTATION_CONTROL
+
+% Create UIFigure and components
+createComponents(app)
+
+% Register the app with App Designer
+registerApp(app, app.ORIENTATIONCONTROLUIFigure)
+
+% Execute the startup function
+runStartupFcn(app, @startupFcn)
+
+if nargout == 0
+clear app
+end
+end
+
+% Code that executes before app deletion
+function delete(app)
+
+% Delete UIFigure when app is deleted
+delete(app.ORIENTATIONCONTROLUIFigure)
+end
+end
+end
+
