@@ -1,0 +1,60 @@
+function circle_figure(radius)
+
+vel_publisher = rospublisher('/cmd_vel');
+velocity_message = rosmessage(vel_publisher);
+tic;
+
+sub_odom=rossubscriber('/odom');
+msg = receive(sub_odom,1);
+
+
+initial_position_x=msg.Pose.Pose.Position.X;
+initial_position_y=msg.Pose.Pose.Position.Y;
+
+%adjust this k
+k=1.7;
+ velocity_message.Linear.X=radius*0.5;
+ velocity_message.Angular.Z=0.5;
+ n=(3/2)*pi/0.5;
+ if(radius>0.3)
+ n=n*1.3;
+ end
+	 
+ send(vel_publisher,velocity_message);
+ pause(n);
+ msg = receive(sub_odom,1);
+ current_position_x=msg.Pose.Pose.Position.X;
+ current_position_y=msg.Pose.Pose.Position.Y;
+ 
+ error=sqrt(power((current_position_x-initial_position_x),2)+power((current_position_y-initial_position_y),2));
+ tic;
+ %0.01 and pause 0.1 can be achieved with r=0.2, but 0.3 cant,
+ %withouut pause better behaviour, idea: if the error starts to increase ,
+ %break
+
+while((error>0.01)&&(toc<15))
+ velocity_message.Linear.X=radius*k*error;
+ velocity_message.Angular.Z=k*error;
+ send(vel_publisher,velocity_message);
+ %pause(0.04);
+ sub_odom=rossubscriber('/odom');
+ msg = receive(sub_odom,1);
+ current_position_x=msg.Pose.Pose.Position.X;
+ current_position_y=msg.Pose.Pose.Position.Y;
+  last=error;
+ error= sqrt(power((current_position_x-initial_position_x),2)+power((current_position_y-initial_position_y),2));
+ disp(error)
+ %error_accumulated=[error_accumulated error];
+ v=[last error];
+ %disp(v)
+ if(v(2)>v(1))
+  disp('error has increased');   
+ break;
+ end
+	 
+end    
+
+ velocity_message.Linear.X=0;
+ velocity_message.Angular.Z=0;
+ send(vel_publisher,velocity_message);
+end
