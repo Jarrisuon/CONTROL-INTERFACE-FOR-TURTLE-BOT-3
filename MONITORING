@@ -1,0 +1,615 @@
+MONITORING
+classdef Monitoring < matlab.apps.AppBase
+
+% Properties that correspond to app components
+properties (Access = public)
+MONITORINGMODEUIFigure matlab.ui.Figure
+UIAxes matlab.ui.control.UIAxes
+TemperatureLabel matlab.ui.control.Label
+AccelerationXLabel matlab.ui.control.Label
+LinearSpeedLabel matlab.ui.control.Label
+AngularSpeedLabel matlab.ui.control.Label
+XPositionLabel matlab.ui.control.Label
+YPositionLabel matlab.ui.control.Label
+AccelerationYLabel matlab.ui.control.Label
+OrientationLabel matlab.ui.control.Label
+AccelerationZLabel matlab.ui.control.Label
+JointPositionXLabel matlab.ui.control.Label
+JointPositionYLabel matlab.ui.control.Label
+MagneticFieldZLabel matlab.ui.control.Label
+LDARRPMSLabel matlab.ui.control.Label
+MagneticFieldYLabel matlab.ui.control.Label
+MagneticFieldXLabel matlab.ui.control.Label
+Panel matlab.ui.container.Panel
+OPEN3DPLOTButton matlab.ui.control.Button
+MOVEButton matlab.ui.control.Button
+DropDown matlab.ui.control.DropDown
+end
+
+properties (Access = private)
+timerObj
+timerObj2
+temperature
+linear_speed
+angular_speed
+position_x
+position_y
+acceleration
+ldar_rpm
+joint_x
+joint_y
+orientation
+acceleration_x
+acceleration_y
+acceleration_z
+magnetic_x
+magnetic_y
+magnetic_z
+colour
+mypi
+temp_sensor
+odom_subscriber
+odom_message
+ldar_subscriber
+ldar_message
+joint_subscriber
+joint_message
+orientation_2
+quaternion
+eulZYX
+imu_subscriber
+imu_message
+magnetic_subscriber
+magnetic_message
+end
+methods (Access = private)
+function Update_plots(app)
+%app.colour=app.ColourButtonGroup.SelectedObject;
+if app.DropDown.Value=='1'
+plot(app.UIAxes, app.temperature,'y');
+elseif app.DropDown.Value=='2'
+plot(app.UIAxes, app.linear_speed,'blue');
+elseif app.DropDown.Value=='3'
+plot(app.UIAxes, app.angular_speed,'m');
+elseif app.DropDown.Value=='4'
+plot(app.UIAxes, app.position_x,'c');
+elseif app.DropDown.Value=='5'
+plot(app.UIAxes, app.position_y,'r');
+elseif app.DropDown.Value=='6'
+plot(app.UIAxes, app.ldar_rpm,'g');
+elseif app.DropDown.Value=='7'
+plot(app.UIAxes, app.joint_x,'black');
+elseif app.DropDown.Value=='8'
+plot(app.UIAxes, app.joint_y,'blue');
+elseif app.DropDown.Value=='9'
+plot(app.UIAxes, app.orientation,'m');
+elseif app.DropDown.Value=='10'
+plot(app.UIAxes, app.acceleration_x,'c');
+elseif app.DropDown.Value=='11'
+plot(app.UIAxes, app.acceleration_y,'r');
+elseif app.DropDown.Value=='12'
+plot(app.UIAxes, app.acceleration_z,'g');
+elseif app.DropDown.Value=='13'
+plot(app.UIAxes, app.magnetic_x,'black');
+elseif app.DropDown.Value=='14'
+plot(app.UIAxes, app.magnetic_y,'blue');
+elseif app.DropDown.Value=='15'
+plot(app.UIAxes, app.magnetic_z,'red');
+end
+end
+function accumulate_data(app)
+app.odom_subscriber=rossubscriber('/odom');
+app.odom_message=receive(app.odom_subscriber,0.5);
+app.ldar_subscriber=rossubscriber('/rpms');
+app.ldar_message=receive(app.ldar_subscriber,0.5);
+app.joint_subscriber=rossubscriber('/joint_states');
+app.joint_message=receive(app.joint_subscriber,0.5);
+app.imu_subscriber=rossubscriber('/imu');
+app.imu_message=receive(app.imu_subscriber,0.5);
+app.magnetic_subscriber=rossubscriber('/magnetic_field');
+app.magnetic_message=receive(app.magnetic_subscriber,0.5);
+app.temperature=[app.temperature bitshift(swapbytes(app.temp_sensor.readRegister(0,'int16')),-4)*0.0625];
+app.linear_speed=[app.linear_speed app.odom_message.Twist.Twist.Linear.X];
+app.angular_speed=[app.angular_speed app.odom_message.Twist.Twist.Angular.Z];
+app.position_x=[app.position_x app.odom_message.Pose.Pose.Position.X];
+app.position_y=[app.position_y app.odom_message.Pose.Pose.Position.Y];
+app.ldar_rpm=[app.ldar_rpm app.ldar_message.Data];
+app.joint_x=[app.joint_x app.joint_message.Position(1)];
+app.joint_y=[app.joint_y app.joint_message.Position(2)];
+app.orientation_2=app.odom_message.Pose.Pose.Orientation;
+app.quaternion=[app.orientation_2.W app.orientation_2.X app.orientation_2.Y app.orientation_2.Z];
+app.eulZYX= quat2eul(app.quaternion);
+app.eulZYX=rad2deg(app.eulZYX);
+app.orientation=[app.orientation app.eulZYX(1)];
+app.acceleration_x=[app.acceleration_x app.imu_message.LinearAcceleration.X];
+app.acceleration_y=[app.acceleration_y app.imu_message.LinearAcceleration.Y];
+app.acceleration_z=[app.acceleration_z app.imu_message.LinearAcceleration.Z];
+app.magnetic_x=[app.magnetic_x app.magnetic_message.MagneticField_.X];
+app.magnetic_y=[app.magnetic_y app.magnetic_message.MagneticField_.Y];
+app.magnetic_z=[app.magnetic_z app.magnetic_message.MagneticField_.Z];
+
+end
+end
+
+% Callbacks that handle component events
+methods (Access = private)
+
+% Code that executes after component creation
+function startupFcn(app)
+app.timerObj = timer('Period',1,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj.TimerFcn = @(x,y)app.Update_plots;
+app.timerObj2 = timer('Period',0.2,...
+'ExecutionMode', 'fixedSpacing', ...
+'TasksToExecute', Inf);
+app.timerObj2.TimerFcn = @(x,y)app.accumulate_data;
+app.temperature= [];
+app.linear_speed=[];
+app.angular_speed=[];
+app.position_x= [];
+app.position_y=[];
+app.ldar_rpm=[];
+app.joint_x=[];
+app.joint_y=[];
+app.orientation=[];
+app.acceleration_x=[];
+app.acceleration_y=[];
+app.acceleration_z=[];
+app.magnetic_x=[];
+app.magnetic_y=[];
+app.magnetic_z=[];
+app.mypi=raspi();
+app.temp_sensor=i2cdev(app.mypi,'i2c-1','0x48');
+start(app.timerObj2);
+start(app.timerObj);
+app.TemperatureLabel.Visible='on';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+end
+
+% Close request function: MONITORINGMODEUIFigure
+function MONITORINGMODEUIFigureCloseRequest(app, event)
+stop(app.timerObj2);
+stop(app.timerObj);
+delete(app)
+end
+
+% Button pushed function: OPEN3DPLOTButton
+function Open3DPlot(app, event)
+plot3(app.position_x, app.position_y,app.temperature,'o');
+end
+
+% Value changed function: DropDown
+function DropDownValueChanged(app, event)
+if app.DropDown.Value=='1'
+app.TemperatureLabel.Visible='on';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='2'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='on';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='3'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='on';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='4'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='on';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='5'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='on';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='6'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='on';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='7'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='on';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='8'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='on';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='9'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='on';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='10'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='on';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='11'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='on';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='12'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='on';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='13'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='on';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='14'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='on';
+app.MagneticFieldZLabel.Visible='off';
+elseif app.DropDown.Value=='15'
+app.TemperatureLabel.Visible='off';
+app.LinearSpeedLabel.Visible='off';
+app.AngularSpeedLabel.Visible='off';
+app.XPositionLabel.Visible='off';
+app.YPositionLabel.Visible='off';
+app.LDARRPMSLabel.Visible='off';
+app.JointPositionXLabel.Visible='off';
+app.JointPositionYLabel.Visible='off';
+app.OrientationLabel.Visible='off';
+app.AccelerationXLabel.Visible='off';
+app.AccelerationYLabel.Visible='off';
+app.AccelerationZLabel.Visible='off';
+app.MagneticFieldXLabel.Visible='off';
+app.MagneticFieldYLabel.Visible='off';
+app.MagneticFieldZLabel.Visible='on';
+end
+end
+end
+
+% Component initialization
+methods (Access = private)
+
+% Create UIFigure and components
+function createComponents(app)
+
+% Create MONITORINGMODEUIFigure and hide until all components are created
+app.MONITORINGMODEUIFigure = uifigure('Visible', 'off');
+app.MONITORINGMODEUIFigure.Color = [0.7725 0.7725 0.9412];
+app.MONITORINGMODEUIFigure.Position = [100 100 868 480];
+app.MONITORINGMODEUIFigure.Name = 'MONITORING MODE';
+app.MONITORINGMODEUIFigure.CloseRequestFcn = createCallbackFcn(app, @MONITORINGMODEUIFigureCloseRequest, true);
+
+% Create UIAxes
+app.UIAxes = uiaxes(app.MONITORINGMODEUIFigure);
+title(app.UIAxes, '')
+xlabel(app.UIAxes, 'Time')
+ylabel(app.UIAxes, 'Value')
+app.UIAxes.Position = [302 53 530 377];
+
+% Create TemperatureLabel
+app.TemperatureLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.TemperatureLabel.FontWeight = 'bold';
+app.TemperatureLabel.Position = [543 437 135 22];
+app.TemperatureLabel.Text = 'Temperature';
+
+% Create AccelerationXLabel
+app.AccelerationXLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.AccelerationXLabel.FontWeight = 'bold';
+app.AccelerationXLabel.Position = [543 437 135 22];
+app.AccelerationXLabel.Text = 'Acceleration X ';
+
+% Create LinearSpeedLabel
+app.LinearSpeedLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.LinearSpeedLabel.FontWeight = 'bold';
+app.LinearSpeedLabel.Position = [543 437 135 22];
+app.LinearSpeedLabel.Text = 'Linear Speed';
+
+% Create AngularSpeedLabel
+app.AngularSpeedLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.AngularSpeedLabel.FontWeight = 'bold';
+app.AngularSpeedLabel.Position = [543 437 135 22];
+app.AngularSpeedLabel.Text = 'Angular Speed';
+
+% Create XPositionLabel
+app.XPositionLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.XPositionLabel.FontWeight = 'bold';
+app.XPositionLabel.Position = [543 437 135 22];
+app.XPositionLabel.Text = 'X Position';
+
+% Create YPositionLabel
+app.YPositionLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.YPositionLabel.FontWeight = 'bold';
+app.YPositionLabel.Position = [543 437 135 22];
+app.YPositionLabel.Text = 'Y Position';
+
+% Create AccelerationYLabel
+app.AccelerationYLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.AccelerationYLabel.FontWeight = 'bold';
+app.AccelerationYLabel.Position = [543 437 135 22];
+app.AccelerationYLabel.Text = 'Acceleration Y';
+
+% Create OrientationLabel
+app.OrientationLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.OrientationLabel.FontWeight = 'bold';
+app.OrientationLabel.Position = [543 437 135 22];
+app.OrientationLabel.Text = 'Orientation';
+
+% Create AccelerationZLabel
+app.AccelerationZLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.AccelerationZLabel.FontWeight = 'bold';
+app.AccelerationZLabel.Position = [543 437 135 22];
+app.AccelerationZLabel.Text = 'Acceleration Z';
+
+% Create JointPositionXLabel
+app.JointPositionXLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.JointPositionXLabel.FontWeight = 'bold';
+app.JointPositionXLabel.Position = [543 437 135 22];
+app.JointPositionXLabel.Text = 'Joint Position X';
+
+% Create JointPositionYLabel
+app.JointPositionYLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.JointPositionYLabel.FontWeight = 'bold';
+app.JointPositionYLabel.Position = [543 437 135 22];
+app.JointPositionYLabel.Text = 'Joint Position Y';
+
+% Create MagneticFieldZLabel
+app.MagneticFieldZLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.MagneticFieldZLabel.FontWeight = 'bold';
+app.MagneticFieldZLabel.Position = [543 437 135 22];
+app.MagneticFieldZLabel.Text = 'Magnetic Field Z';
+
+% Create LDARRPMSLabel
+app.LDARRPMSLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.LDARRPMSLabel.FontWeight = 'bold';
+app.LDARRPMSLabel.Position = [543 437 135 22];
+app.LDARRPMSLabel.Text = 'LDAR- RPMS';
+
+% Create MagneticFieldYLabel
+app.MagneticFieldYLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.MagneticFieldYLabel.FontWeight = 'bold';
+app.MagneticFieldYLabel.Position = [543 437 135 22];
+app.MagneticFieldYLabel.Text = 'Magnetic Field Y';
+
+% Create MagneticFieldXLabel
+app.MagneticFieldXLabel = uilabel(app.MONITORINGMODEUIFigure);
+app.MagneticFieldXLabel.FontWeight = 'bold';
+app.MagneticFieldXLabel.Position = [544 437 135 22];
+app.MagneticFieldXLabel.Text = 'Magnetic Field X';
+
+% Create Panel
+app.Panel = uipanel(app.MONITORINGMODEUIFigure);
+app.Panel.BackgroundColor = [0.4471 0.7608 0.9686];
+app.Panel.Position = [44 140 224 219];
+
+% Create OPEN3DPLOTButton
+app.OPEN3DPLOTButton = uibutton(app.Panel, 'push');
+app.OPEN3DPLOTButton.ButtonPushedFcn = createCallbackFcn(app, @Open3DPlot, true);
+app.OPEN3DPLOTButton.BackgroundColor = [0 1 0];
+app.OPEN3DPLOTButton.FontWeight = 'bold';
+app.OPEN3DPLOTButton.Position = [43 23 143 22];
+app.OPEN3DPLOTButton.Text = 'OPEN 3D PLOT';
+
+% Create MOVEButton
+app.MOVEButton = uibutton(app.Panel, 'push');
+app.MOVEButton.BackgroundColor = [0 1 0];
+app.MOVEButton.FontWeight = 'bold';
+app.MOVEButton.Position = [42 65 143 22];
+app.MOVEButton.Text = 'MOVE';
+
+% Create DropDown
+app.DropDown = uidropdown(app.Panel);
+app.DropDown.Items = {'Temperature', 'Linear Speed', 'Angular Speed', 'Position-x', 'Position-y', 'LDAR-RPM', 'Joint position-x', 'Joint position-y', 'orientation', 'acceleration-x', 'acceleration-y', 'acceleration-z', 'Magnetif field-x', 'Magnetif field-y', 'Magnetif field-z'};
+app.DropDown.ItemsData = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', ''};
+app.DropDown.ValueChangedFcn = createCallbackFcn(app, @DropDownValueChanged, true);
+app.DropDown.FontSize = 14;
+app.DropDown.FontWeight = 'bold';
+app.DropDown.BackgroundColor = [0.9686 0.7451 0.0784];
+app.DropDown.Position = [33 144 159 51];
+app.DropDown.Value = '1';
+
+% Show the figure after all components are created
+app.MONITORINGMODEUIFigure.Visible = 'on';
+end
+end
+
+% App creation and deletion
+methods (Access = public)
+
+% Construct app
+function app = Monitoring
+
+% Create UIFigure and components
+createComponents(app)
+
+% Register the app with App Designer
+registerApp(app, app.MONITORINGMODEUIFigure)
+
+% Execute the startup function
+runStartupFcn(app, @startupFcn)
+
+if nargout == 0
+clear app
+end
+end
+
+% Code that executes before app deletion
+function delete(app)
+
+% Delete UIFigure when app is deleted
+delete(app.MONITORINGMODEUIFigure)
+end
+end
+end
+
